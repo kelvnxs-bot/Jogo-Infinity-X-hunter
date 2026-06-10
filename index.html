@@ -168,6 +168,9 @@ scene.fog = new THREE.Fog(0x9ed3ff, 70, 170);
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, .1, 300);
 const CAM_OFFSET = new THREE.Vector3(0, 10, 12.5);
+let camZoom = 1;                 // .6 (perto) a 1.7 (longe)
+let shakeT = 0, shakeMag = 0;    // tremor de tela
+function addShake(mag) { shakeT = .3; shakeMag = mag; }
 
 const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -924,6 +927,7 @@ function hurtEnemy(e, dmg, dir, kb) {
     updateKills();
     sfx('death');
     if (e.elite) {
+      addShake(.4);                                                  // gigante desabando
       spawnHeart(e.mesh.position);                                   // gigante sempre dropa coração
       if (Math.random() < .5) spawnAcai(e.mesh.position.clone());    // e às vezes um açaí
     } else if (Math.random() < .3) {
@@ -941,7 +945,7 @@ function applyHit() {
   const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(player.quaternion);
   let range = 2.8, dmg = 1, allDirections = false, kb = 1.4;
   if (type === 'corte')   { range = 4;   dmg = 3; allDirections = true; }
-  if (type === 'martelo') { range = 4.8; dmg = 2; allDirections = true; kb = 3.2; }
+  if (type === 'martelo') { range = 4.8; dmg = 2; allDirections = true; kb = 3.2; addShake(.45); }
 
   for (const e of enemies) {
     if (e.dying > 0) continue;
@@ -980,6 +984,7 @@ function damagePlayer(amount) {
   state.invuln = 1.2;
   updateHearts();
   sfx('hurt');
+  addShake(.55);
   const dmg = document.getElementById('dmg');
   dmg.style.opacity = 1;
   setTimeout(() => dmg.style.opacity = 0, 180);
@@ -1008,6 +1013,9 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => keys[e.code] = false);
 renderer.domElement.addEventListener('mousedown', attack);
+addEventListener('wheel', e => {
+  camZoom = Math.min(1.7, Math.max(.6, camZoom + e.deltaY * .0012));
+}, { passive:true });
 document.getElementById('sndBtn').addEventListener('click', toggleSound);
 document.getElementById('sndBtn').addEventListener('touchstart', e => {
   e.preventDefault(); e.stopPropagation(); toggleSound();
@@ -1029,10 +1037,25 @@ addEventListener('touchstart', e => {
     }
   }
 }, { passive:false });
+let pinchDist = null;
+function nonJoyTouches(e) {
+  return Array.from(e.touches).filter(t => t.identifier !== joy.id);
+}
 addEventListener('touchmove', e => {
   e.preventDefault();
   for (const t of e.changedTouches)
     if (joy.active && t.identifier === joy.id) updateJoy(t);
+  // pinça para zoom (dois dedos que não sejam o joystick)
+  const pts = nonJoyTouches(e);
+  if (pts.length >= 2) {
+    const d = Math.hypot(pts[0].clientX - pts[1].clientX, pts[0].clientY - pts[1].clientY);
+    if (pinchDist !== null && d > 0) {
+      camZoom = Math.min(1.7, Math.max(.6, camZoom * (pinchDist / d)));
+    }
+    pinchDist = d;
+  } else {
+    pinchDist = null;
+  }
 }, { passive:false });
 addEventListener('touchend', e => {
   for (const t of e.changedTouches)
@@ -1040,6 +1063,7 @@ addEventListener('touchend', e => {
       joy.active = false; joy.dx = 0; joy.dy = 0;
       joyStick.style.transform = 'translate(-50%,-50%)';
     }
+  if (nonJoyTouches(e).length < 2) pinchDist = null;
 });
 function updateJoy(t) {
   const c = joyCenter();
@@ -1280,8 +1304,15 @@ function animate() {
   }
 
   // --- Câmera ---
-  const camTarget = player.position.clone().add(CAM_OFFSET);
+  const camTarget = player.position.clone().add(CAM_OFFSET.clone().multiplyScalar(camZoom));
   camera.position.lerp(camTarget, .08);
+  if (shakeT > 0) {
+    shakeT -= dt;
+    const s = shakeMag * (shakeT / .3);
+    camera.position.x += (Math.random() - .5) * s;
+    camera.position.y += (Math.random() - .5) * s;
+    camera.position.z += (Math.random() - .5) * s;
+  }
   camera.lookAt(player.position.x, player.position.y + 1.4, player.position.z);
 
   renderer.render(scene, camera);
