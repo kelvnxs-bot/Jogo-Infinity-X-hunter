@@ -138,6 +138,7 @@
 <div id="bigMsg"></div>
 
 <div id="msg"></div>
+<div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 4px); left:50%; transform:translateX(-50%); z-index:11; display:none; padding:8px 18px; border-radius:30px; background:rgba(8,12,24,.72); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border:1px solid rgba(255,209,102,.5); white-space:nowrap; pointer-events:none; font-size:13px; font-weight:700; color:#ffd166; letter-spacing:.5px;"></div>
 <div id="dmg"></div>
 <canvas id="minimap" width="220" height="220"></canvas>
 
@@ -165,6 +166,7 @@
   <div class="controls-hint" id="hintDesktop">🎮 W A S D — mover &nbsp;|&nbsp; ESPAÇO — pular &nbsp;|&nbsp; CLIQUE ou J — atacar</div>
   <div class="controls-hint" id="hintTouch" style="display:none">🕹️ Joystick — mover &nbsp;|&nbsp; ↑ — pular &nbsp;|&nbsp; ⚔️ — atacar</div>
   <button class="btn" id="startBtn">COMEÇAR</button>
+  <div id="homeRank" style="margin-top:22px; width:min(330px, 84vw);"></div>
 </div>
 
 <div class="screen" id="gameover">
@@ -229,7 +231,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 // Luz: fim de tarde tropical
-scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x6a7c4f, .75));
+const hemiLight = new THREE.HemisphereLight(0xbfe3ff, 0x6a7c4f, .75);
+scene.add(hemiLight);
 const sun = new THREE.DirectionalLight(0xfff1c9, 1.25);
 sun.position.set(28, 42, 18);
 sun.castShadow = true;
@@ -238,6 +241,67 @@ sun.shadow.camera.left = -35; sun.shadow.camera.right = 35;
 sun.shadow.camera.top = 35;   sun.shadow.camera.bottom = -35;
 scene.add(sun);
 scene.add(sun.target);
+
+// ---------- Ciclo Dia / Noite ----------
+// Lua (escondida de dia)
+const moon = new THREE.Group();
+const moonMesh = new THREE.Mesh(new THREE.SphereGeometry(4, 16, 16),
+  new THREE.MeshBasicMaterial({ color:0xeef2ff }));
+moonMesh.position.set(-40, 38, -50);
+moon.add(moonMesh);
+const moonGlow = new THREE.Mesh(new THREE.SphereGeometry(5.5, 16, 16),
+  new THREE.MeshBasicMaterial({ color:0xc9d4ff, transparent:true, opacity:.25 }));
+moonGlow.position.copy(moonMesh.position);
+moon.add(moonGlow);
+moon.visible = false;
+scene.add(moon);
+
+const DIA = {
+  ceu:0x9ed3ff, fog:0x9ed3ff, sunInt:1.25, sunCor:0xfff1c9,
+  hemiCeu:0xbfe3ff, hemiChao:0x6a7c4f, hemiInt:.75, lamp:.9,
+};
+const NOITE = {
+  ceu:0x101935, fog:0x141d3a, sunInt:.35, sunCor:0x8fa6e0,
+  hemiCeu:0x2a3a6b, hemiChao:0x1a2030, hemiInt:.4, lamp:2.4,
+};
+let ehNoite = false;
+let luz = { ceu:0x9ed3ff, fog:0x9ed3ff, sunInt:1.25, sunCor:0xfff1c9,
+  hemiCeu:0xbfe3ff, hemiChao:0x6a7c4f, hemiInt:.75, lamp:.9 };
+let luzAlvo = Object.assign({}, DIA);
+let luzAtual = Object.assign({}, DIA);
+
+function lerpHex(a, b, t) {
+  const ar=(a>>16)&255, ag=(a>>8)&255, ab=a&255;
+  const br=(b>>16)&255, bg=(b>>8)&255, bb=b&255;
+  return ((ar+(br-ar)*t)|0)<<16 | ((ag+(bg-ag)*t)|0)<<8 | ((ab+(bb-ab)*t)|0);
+}
+function setPeriodo(noite) {
+  ehNoite = noite;
+  luzAlvo = Object.assign({}, noite ? NOITE : DIA);
+  moon.visible = true;                  // visível durante transição; some sozinha se ficar dia
+  showMsg(noite ? '🌙 ANOITECEU' : '☀️ AMANHECEU');
+}
+function updateLuz(dt) {
+  const k = Math.min(dt * 1.2, 1);
+  luzAtual.sunInt += (luzAlvo.sunInt - luzAtual.sunInt) * k;
+  luzAtual.hemiInt += (luzAlvo.hemiInt - luzAtual.hemiInt) * k;
+  luzAtual.lamp += (luzAlvo.lamp - luzAtual.lamp) * k;
+  luzAtual.ceu = lerpHex(luzAtual.ceu|0, luzAlvo.ceu, k);
+  luzAtual.fog = lerpHex(luzAtual.fog|0, luzAlvo.fog, k);
+  luzAtual.sunCor = lerpHex(luzAtual.sunCor|0, luzAlvo.sunCor, k);
+  luzAtual.hemiCeu = lerpHex(luzAtual.hemiCeu|0, luzAlvo.hemiCeu, k);
+  luzAtual.hemiChao = lerpHex(luzAtual.hemiChao|0, luzAlvo.hemiChao, k);
+
+  scene.background.setHex(luzAtual.ceu|0);
+  scene.fog.color.setHex(luzAtual.fog|0);
+  sun.intensity = luzAtual.sunInt;
+  sun.color.setHex(luzAtual.sunCor|0);
+  hemiLight.intensity = luzAtual.hemiInt;
+  hemiLight.color.setHex(luzAtual.hemiCeu|0);
+  hemiLight.groundColor.setHex(luzAtual.hemiChao|0);
+  for (const m of lampMats) m.emissiveIntensity = luzAtual.lamp;
+  moon.visible = luzAtual.sunInt < 1.0;       // lua aparece quando escurece
+}
 
 // ---------- Helpers ----------
 const box = (w,h,d,color,opts={}) => {
@@ -293,6 +357,7 @@ function makeFacade(baseColor) {
 
 // ---------- Cidade realista ----------
 const obstacles = [];   // colisores circulares {x, z, r}
+const lampMats = [];    // materiais das lâmpadas (acendem à noite)
 
 function buildCity() {
   // CHÃO EXTERNO (concreto sob a rua e os prédios — nada flutua)
@@ -459,6 +524,7 @@ function buildCity() {
     const lamp = new THREE.Mesh(new THREE.SphereGeometry(.3, 10, 10),
       new THREE.MeshStandardMaterial({ color:0xfff2b0, emissive:0xffe28a, emissiveIntensity:.9 }));
     lamp.position.y = 4.55; post.add(lamp);
+    lampMats.push(lamp.material);
     post.position.set(Math.cos(a)*(ARENA-1.5), 0, Math.sin(a)*(ARENA-1.5));
     obstacles.push({ x:post.position.x, z:post.position.z, r:.4 });
     scene.add(post);
@@ -747,7 +813,39 @@ function buildLago() {
   const borda = new THREE.Mesh(new THREE.RingGeometry(LR, LR + .9, 32),
     new THREE.MeshStandardMaterial({ color:0xb8b0a0, roughness:1 }));
   borda.rotation.x = -Math.PI/2; borda.position.set(LX, .045, LZ); scene.add(borda);
-  obstacles.push({ x:LX, z:LZ, r:LR + .5 });
+
+  // PONTE de madeira atravessando o lago (eixo Z) — passagem livre no meio
+  const bridge = new THREE.Group();
+  const deckMat = new THREE.MeshStandardMaterial({ color:0x8a6a45, roughness:.9 });
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(2.4, .2, (LR + 1.6) * 2), deckMat);
+  deck.position.y = .5; deck.castShadow = true; deck.receiveShadow = true; bridge.add(deck);
+  // tábuas
+  for (let z = -LR - 1; z <= LR + 1; z += 1.1) {
+    const tabua = new THREE.Mesh(new THREE.BoxGeometry(2.5, .04, .9),
+      new THREE.MeshStandardMaterial({ color:0x9a784f, roughness:.9 }));
+    tabua.position.set(0, .61, z); bridge.add(tabua);
+  }
+  // corrimãos
+  const railMat = new THREE.MeshStandardMaterial({ color:0x6e5230, roughness:.9 });
+  [-1.25, 1.25].forEach(sx => {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(.1, .5, (LR + 1.6) * 2), railMat);
+    rail.position.set(sx, .9, 0); bridge.add(rail);
+    for (let z = -LR - 1; z <= LR + 1; z += 2.2) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(.12, .55, .12), railMat);
+      post.position.set(sx, .72, z); bridge.add(post);
+    }
+  });
+  bridge.position.set(LX, 0, LZ); scene.add(bridge);
+
+  // Colisão do lago: anel partido (deixa passar onde a ponte cruza, |x-LX| < 1.2)
+  // Implementado como arcos: vários colisores pequenos exceto na faixa da ponte
+  for (let i = 0; i < 20; i++) {
+    const ang = (i / 20) * Math.PI * 2;
+    const ox = Math.cos(ang) * LR, oz = Math.sin(ang) * LR;
+    if (Math.abs(ox) < 1.5) continue;          // abertura para a ponte (norte e sul)
+    obstacles.push({ x: LX + ox, z: LZ + oz, r: 1.5 });
+  }
+
   for (let i = 0; i < 5; i++) {
     const a = rand(0, Math.PI*2);
     const pedra = new THREE.Mesh(new THREE.SphereGeometry(rand(.3, .6), 7, 6),
@@ -1120,6 +1218,9 @@ function spawnMonster(speed, kind, pos) {
 
 function startWave() {
   state.wave++;
+  // ciclo dia/noite: alterna a cada 3 ondas (1-3 dia, 4-6 noite, 7-9 dia...)
+  const deveSerNoite = Math.floor((state.wave - 1) / 3) % 2 === 1;
+  if (deveSerNoite !== ehNoite) setPeriodo(deveSerNoite);
   const count = 3 + state.wave * 2;
   const speed = Math.min(1.8 + state.wave * .18, 3.8);
   const elites = state.wave >= 3 ? Math.min(1 + Math.floor((state.wave - 3) / 2), 3) : 0;
@@ -1347,6 +1448,91 @@ function showMsg(t) {
   msgTimer = setTimeout(() => el.style.opacity = 0, 1700);
 }
 
+// ---------- Missões (coletar caixas no mapa → ganhar aura) ----------
+const QUEST_LOCAIS = [
+  { nome:'IGREJA',    x:-22, z:-9 },
+  { nome:'FEIRA',     x:32,  z:16 },
+  { nome:'PARQUINHO', x:-30, z:26 },
+  { nome:'LAGO',      x:10,  z:-30 },
+  { nome:'QUADRA',    x:17,  z:-17 },
+  { nome:'PRAÇA',     x:0,   z:14 },
+  { nome:'RUA',       x:-14, z:-30 },
+];
+const quest = { ativa:false, caixas:[], total:0, pegas:0, tempo:0, tempoMax:0, cooldown:6 };
+
+function questDificuldade() {
+  // começa fácil (1 caixa) e cresce com as ondas
+  if (state.wave <= 1) return 1;
+  if (state.wave <= 3) return 2;
+  if (state.wave <= 6) return 3;
+  if (state.wave <= 9) return 4;
+  return 5;
+}
+
+function spawnQuest() {
+  if (quest.ativa) return;
+  const n = questDificuldade();
+  quest.total = n; quest.pegas = 0;
+  quest.tempoMax = 14 + n * 7;          // mais caixas, mais tempo
+  quest.tempo = quest.tempoMax;
+  quest.caixas = [];
+
+  // escolhe N regiões distintas
+  const locs = QUEST_LOCAIS.slice().sort(() => Math.random() - .5).slice(0, n);
+  for (const loc of locs) {
+    const g = new THREE.Group();
+    const cubo = new THREE.Mesh(new THREE.BoxGeometry(.55, .55, .55),
+      new THREE.MeshStandardMaterial({ color:0xffd166, emissive:0xffaa1a, emissiveIntensity:.6, roughness:.5 }));
+    cubo.position.y = .5; cubo.castShadow = true; g.add(cubo);
+    const fita = new THREE.Mesh(new THREE.BoxGeometry(.58, .58, .12),
+      new THREE.MeshStandardMaterial({ color:0xcc7a00, roughness:.6 }));
+    fita.position.y = .5; g.add(fita);
+    const pin = new THREE.Mesh(new THREE.ConeGeometry(.22, .5, 4),
+      new THREE.MeshBasicMaterial({ color:0xffd166 }));
+    pin.rotation.x = Math.PI; pin.position.y = 1.45; g.add(pin);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(.7, .9, 22),
+      new THREE.MeshBasicMaterial({ color:0xffd166, side:THREE.DoubleSide, transparent:true, opacity:.8 }));
+    ring.rotation.x = -Math.PI/2; ring.position.y = .05; g.add(ring);
+    g.position.set(loc.x + rand(-2, 2), 0, loc.z + rand(-2, 2));
+    quest.caixas.push(g); scene.add(g);
+  }
+  quest.ativa = true;
+  document.getElementById('questBanner').style.display = 'block';
+  updateQuestBanner();
+  showMsg('⭐ MISSÃO: ' + n + (n > 1 ? ' CAIXAS!' : ' CAIXA!'));
+}
+
+function updateQuestBanner() {
+  const banner = document.getElementById('questBanner');
+  const secs = Math.ceil(quest.tempo);
+  banner.innerHTML = '📦 CAIXAS ' + quest.pegas + '/' + quest.total +
+    ' &nbsp;·&nbsp; ⏱️ ' + secs + 's &nbsp;·&nbsp; +' + (quest.total * 2) + ' aura';
+}
+
+function endQuest(sucesso) {
+  quest.caixas.forEach(c => scene.remove(c));
+  quest.caixas = [];
+  quest.ativa = false;
+  quest.cooldown = sucesso ? 14 : 9;
+  document.getElementById('questBanner').style.display = 'none';
+  if (sucesso) {
+    const recompensa = quest.total * 2;
+    for (let k = 0; k < recompensa; k++) {
+      state.aura++;
+      if (state.aura >= auraMilestone) {
+        const tier = Math.min(3, Math.round(auraMilestone / 10));
+        auraMilestone += 10;
+        triggerSupremo(tier);
+      }
+    }
+    updateAuraHud();
+    showMsg('✅ MISSÃO COMPLETA! +' + recompensa + ' AURA');
+    if (typeof sfx === 'function') sfx('aura');
+  } else {
+    showMsg('⌛ MISSÃO EXPIROU');
+  }
+}
+
 // ---------- Minimapa ----------
 const mmCtx = document.getElementById('minimap').getContext('2d');
 function mmDot(M, x, z, cor, r) {
@@ -1382,6 +1568,7 @@ function drawMinimap() {
   for (const a of auras) mmDot(M, a.position.x, a.position.z, '#ffd166', 2.6);
   for (const a of acais) mmDot(M, a.position.x, a.position.z, '#b26bff', 2.6);
   for (const h of heartDrops) mmDot(M, h.position.x, h.position.z, '#ff6b8a', 2.2);
+  if (quest.ativa) for (const c of quest.caixas) mmDot(M, c.position.x, c.position.z, '#ffd166', 3.4);
   // monstros
   for (const e of enemies) {
     if (e.dying > 0) continue;
@@ -1808,6 +1995,26 @@ nickInput.addEventListener('input', () => {
   }
 });
 
+async function loadHomeRank() {
+  const el = document.getElementById('homeRank');
+  el.innerHTML = '<div class="rk-loading">Carregando ranking...</div>';
+  try {
+    const r = await fetch(SB_URL + '/rest/v1/ranking?select=nick,score,wave&order=score.desc&limit=5',
+      { headers: SB_HEADERS });
+    const top = await r.json();
+    if (!top.length) { el.innerHTML = ''; return; }
+    let html = '<div class="rk-title">🏆 TOP 5 MUNDIAL</div>';
+    top.forEach((r2, i) => {
+      html += '<div class="rk-row"><span>' + ['🥇','🥈','🥉','4.','5.'][i] + ' ' +
+        escapeHtml(r2.nick) + '</span><span>' + r2.score + ' pts</span></div>';
+    });
+    el.innerHTML = html;
+  } catch (err) {
+    el.innerHTML = '';
+  }
+}
+loadHomeRank();
+
 // ---------- Input: teclado ----------
 addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;   // digitando o nick
@@ -1899,6 +2106,10 @@ function startGame() {
   novas.forEach(n => scene.remove(n.mesh)); novas = [];
   bombs.forEach(b => scene.remove(b.mesh)); bombs = [];
   explosions.forEach(x => scene.remove(x.mesh)); explosions = [];
+  if (quest.caixas) quest.caixas.forEach(c => scene.remove(c));
+  quest.ativa = false; quest.caixas = []; quest.pegas = 0; quest.cooldown = 6;
+  document.getElementById('questBanner').style.display = 'none';
+  ehNoite = false; luzAlvo = Object.assign({}, DIA); luzAtual = Object.assign({}, DIA);
   auraMilestone = 10;
   minigunCd = 0; deusTick = .5;
   acaiTimer = 5;
@@ -1925,7 +2136,7 @@ function startGame() {
   startWave();
 }
 document.getElementById('startBtn').addEventListener('click', startGame);
-document.getElementById('restartBtn').addEventListener('click', startGame);
+document.getElementById('restartBtn').addEventListener('click', () => { loadHomeRank(); startGame(); });
 if (isTouch) {
   document.getElementById('hintDesktop').style.display = 'none';
   document.getElementById('hintTouch').style.display = 'block';
@@ -1981,6 +2192,7 @@ function animate() {
     cl.position.x += dt * 1.1;
     if (cl.position.x > 95) cl.position.x = -95;
   }
+  updateLuz(dt);
 
   // sol acompanha o jogador (sombras nítidas mesmo no mapa grande)
   sun.position.set(player.position.x + 28, 42, player.position.z + 18);
@@ -2078,9 +2290,23 @@ function animate() {
       const reach = e.elite ? 2.3 : 1.15;
       if (dist > reach) {
         to.normalize();
-        e.mesh.position.x += to.x * e.speed * dt;
-        e.mesh.position.z += to.z * e.speed * dt;
-        clampToArena(e.mesh.position);
+        // tenta andar reto; se a posição mal sair do lugar, está preso → contorna
+        const prevX = e.mesh.position.x, prevZ = e.mesh.position.z;
+        const np = e.mesh.position.clone();
+        np.x += to.x * e.speed * dt;
+        np.z += to.z * e.speed * dt;
+        clampToArena(np);
+        const avancou = Math.hypot(np.x - prevX, np.z - prevZ);
+        if (avancou < e.speed * dt * .5) {
+          // bloqueado: desvia perpendicular (alterna lado por monstro)
+          const side = e.bobSeed > 5 ? 1 : -1;
+          const perp = new THREE.Vector3(-to.z * side, 0, to.x * side);
+          np.set(e.mesh.position.x + perp.x * e.speed * dt * 1.2, 0,
+                 e.mesh.position.z + perp.z * e.speed * dt * 1.2);
+          clampToArena(np);
+        }
+        e.mesh.position.x = np.x;
+        e.mesh.position.z = np.z;
       }
       e.mesh.lookAt(player.position.x, 0, player.position.z);
       e.mesh.position.y = e.ghost
@@ -2246,6 +2472,31 @@ function animate() {
     }
 
     drawMinimap();
+
+    // --- Missões ---
+    if (!quest.ativa) {
+      quest.cooldown -= dt;
+      if (quest.cooldown <= 0) spawnQuest();
+    } else {
+      quest.tempo -= dt;
+      updateQuestBanner();
+      for (let i = quest.caixas.length - 1; i >= 0; i--) {
+        const c = quest.caixas[i];
+        c.children[0].rotation.y += dt * 1.5;
+        c.children[2].position.y = 1.45 + Math.sin(t * 4 + i) * .12;
+        c.children[3].rotation.z += dt * 1.2;
+        const dx = c.position.x - player.position.x;
+        const dz = c.position.z - player.position.z;
+        if (Math.hypot(dx, dz) < 1.6) {
+          scene.remove(c); quest.caixas.splice(i, 1);
+          quest.pegas++;
+          if (typeof sfx === 'function') sfx('aura');
+          if (quest.pegas >= quest.total) { endQuest(true); break; }
+          else { showMsg('📦 ' + quest.pegas + '/' + quest.total); updateQuestBanner(); }
+        }
+      }
+      if (quest.ativa && quest.tempo <= 0) endQuest(false);
+    }
   }
 
   // --- Câmera ---
