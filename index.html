@@ -47,6 +47,8 @@
   /* ---------- Dano (flash vermelho) ---------- */
   #dmg { position:fixed; inset:0; background:radial-gradient(circle, transparent 40%, rgba(255,0,40,.45) 100%);
     opacity:0; pointer-events:none; z-index:9; transition:opacity .12s; }
+  #minimap { position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 86px); right:16px;
+    width:110px; height:110px; display:none; z-index:10; pointer-events:none; }
 
   /* ---------- Controles touch ---------- */
   #joyBase { position:fixed; left:26px; bottom:max(30px, env(safe-area-inset-bottom)); width:120px; height:120px;
@@ -92,6 +94,19 @@
   .skin-btn.sel { border-color:#b26bff; background:rgba(178,107,255,.18); color:#fff;
     box-shadow:0 0 16px rgba(178,107,255,.35); }
   .skin-btn:active { transform:scale(.95); }
+  .nick-label { margin-top:18px; font-size:12px; font-weight:800; letter-spacing:3px; color:rgba(255,255,255,.55); }
+  #nickInput { margin-top:8px; padding:11px 20px; width:min(240px, 70vw); text-align:center;
+    font-size:16px; font-weight:700; letter-spacing:1px; color:#fff;
+    background:rgba(255,255,255,.07); border:2px solid rgba(178,107,255,.4); border-radius:30px; outline:none; }
+  #nickInput:focus { border-color:#b26bff; box-shadow:0 0 14px rgba(178,107,255,.35); }
+  #rankList { margin-top:16px; width:min(330px, 84vw); }
+  .rk-pos { font-size:15px; color:#fff; margin-bottom:10px; }
+  .rk-pos b { color:#ffd166; }
+  .rk-title { font-size:13px; font-weight:800; letter-spacing:3px; color:#ffd166; margin-bottom:6px; }
+  .rk-row { display:flex; justify-content:space-between; padding:5px 14px; margin-bottom:3px;
+    border-radius:9px; background:rgba(255,255,255,.06); color:rgba(255,255,255,.85); font-size:14px; }
+  .rk-row.me { background:rgba(178,107,255,.3); border:1px solid #b26bff; color:#fff; font-weight:800; }
+  .rk-loading { color:rgba(255,255,255,.5); font-size:13px; }
   .btn { margin-top:26px; padding:16px 52px; font-size:18px; font-weight:800; letter-spacing:3px;
     color:#fff; background:linear-gradient(90deg, #b26bff, #7c4dff); border:none; border-radius:50px;
     box-shadow:0 0 32px rgba(178,107,255,.55); cursor:pointer; }
@@ -124,6 +139,7 @@
 
 <div id="msg"></div>
 <div id="dmg"></div>
+<canvas id="minimap" width="220" height="220"></canvas>
 
 <div id="joyBase"><div id="joyStick"></div></div>
 <button id="atkBtn">⚔️</button>
@@ -134,8 +150,9 @@
   <div class="sword-emoji">⚔️</div>
   <div class="title">INFINITY × HUNTER</div>
   <div class="subtitle">Um caçador entre dimensões chegou à cidade. Derrote as ondas de esqueletos — e cuidado com os <b>GIGANTES</b>.</div>
-  <div class="powers-list">🍇 Cada copo de açaí dá um poder diferente (o novo substitui o anterior):<br>
-    <b class="p1">● CORTE DO INFINITO</b> &nbsp; <b class="p2">● MARTELO DIMENSIONAL</b> &nbsp; <b class="p3">● RAIO LASER</b></div>
+  <div class="powers-list">🍇 Açaís comuns: <b class="p1">● CORTE</b> <b class="p2">● MARTELO</b> <b class="p3">● LASER</b><br>
+    Açaís raros: <b style="color:#ffe14d">● MINIGUN</b> &nbsp; <b style="color:#84cc16">● BOMBAS</b><br>
+    ⚡ Acumule auras: 10, 20... e aos 30, <b style="color:#ffd166">AURA DO ANJO CAÍDO</b></div>
   <div class="skins-label">ESCOLHA SUA SKIN</div>
   <div class="skins-row">
     <button class="skin-btn sel" data-skin="cacador"><span class="dot" style="background:#b26bff"></span>CAÇADOR</button>
@@ -143,6 +160,8 @@
     <button class="skin-btn" data-skin="brasil"><span class="dot" style="background:linear-gradient(180deg,#009c3b 50%,#ffdf00 50%)"></span>BRASIL</button>
     <button class="skin-btn" data-skin="neon"><span class="dot" style="background:#00e5ff"></span>NEON</button>
   </div>
+  <div class="nick-label">SEU NICK</div>
+  <input id="nickInput" maxlength="20" spellcheck="false" autocomplete="off">
   <div class="controls-hint" id="hintDesktop">🎮 W A S D — mover &nbsp;|&nbsp; ESPAÇO — pular &nbsp;|&nbsp; CLIQUE ou J — atacar</div>
   <div class="controls-hint" id="hintTouch" style="display:none">🕹️ Joystick — mover &nbsp;|&nbsp; ↑ — pular &nbsp;|&nbsp; ⚔️ — atacar</div>
   <button class="btn" id="startBtn">COMEÇAR</button>
@@ -151,6 +170,7 @@
 <div class="screen" id="gameover">
   <div class="title">VOCÊ CAIU EM BATALHA</div>
   <div id="finalStats"></div>
+  <div id="rankList"></div>
   <button class="btn" id="restartBtn">REVANCHE</button>
 </div>
 
@@ -162,30 +182,33 @@
    ========================================================= */
 
 // ---------- Constantes ----------
-const ARENA = 38;            // raio jogável
+const ARENA = 62;            // raio jogável
 const FOUNTAIN_R = 3.2;      // colisão da fonte central
 const MAX_HP = 5;
 const POWER_TIME = 10;       // duração do poder do açaí (s)
 const PLAYER_SPEED = 7;
 
 const POWERS = {
-  corte:   { nome:'CORTE DO INFINITO',   cor:0xb26bff, css:'#b26bff' },
-  martelo: { nome:'MARTELO DIMENSIONAL', cor:0xff9f1c, css:'#ff9f1c' },
-  laser:   { nome:'RAIO LASER',          cor:0xff3b5c, css:'#ff3b5c' },
+  corte:     { nome:'CORTE DO INFINITO',   cor:0xb26bff, css:'#b26bff' },
+  martelo:   { nome:'MARTELO DIMENSIONAL', cor:0xff9f1c, css:'#ff9f1c' },
+  laser:     { nome:'RAIO LASER',          cor:0xff3b5c, css:'#ff3b5c' },
+  minigun:   { nome:'MINIGUN',             cor:0xffe14d, css:'#ffe14d', raro:true },
+  explosivo: { nome:'BOMBAS EXPLOSIVAS',   cor:0x84cc16, css:'#84cc16', raro:true },
 };
-const POWER_KEYS = Object.keys(POWERS);
+const POWERS_COMUNS = ['corte', 'martelo', 'laser'];
+const POWERS_RAROS  = ['minigun', 'explosivo'];
 
 const state = {
   playing:false, gameOver:false,
   hp:MAX_HP, kills:0, wave:0,
   invuln:0, attackT:0, attackCd:0, didHit:false,
-  power:0, powerType:null, aura:0,
+  power:0, powerType:null, aura:0, deus:0,
 };
 
 const keys = {};
 const joy = { active:false, id:null, dx:0, dy:0 };
 const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-let enemies = [], acais = [], heartDrops = [], beams = [], clouds = [], auras = [], novas = [];
+let enemies = [], acais = [], heartDrops = [], beams = [], clouds = [], auras = [], novas = [], bombs = [], explosions = [];
 
 // ---------- Cena ----------
 const scene = new THREE.Scene();
@@ -211,9 +234,10 @@ const sun = new THREE.DirectionalLight(0xfff1c9, 1.25);
 sun.position.set(28, 42, 18);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -60; sun.shadow.camera.right = 60;
-sun.shadow.camera.top = 60;   sun.shadow.camera.bottom = -60;
+sun.shadow.camera.left = -35; sun.shadow.camera.right = 35;
+sun.shadow.camera.top = 35;   sun.shadow.camera.bottom = -35;
 scene.add(sun);
+scene.add(sun.target);
 
 // ---------- Helpers ----------
 const box = (w,h,d,color,opts={}) => {
@@ -285,7 +309,7 @@ function buildCity() {
       const s = rand(2, 9);
       x.fillRect(Math.random()*w, Math.random()*h, s, s);
     }
-  }, 256, 256, 16, 16);
+  }, 256, 256, 26, 26);
   const grass = new THREE.Mesh(new THREE.CircleGeometry(ARENA+2, 56),
     new THREE.MeshStandardMaterial({ map:grassTex, roughness:1 }));
   grass.rotation.x = -Math.PI/2; grass.receiveShadow = true; scene.add(grass);
@@ -411,19 +435,23 @@ function buildCity() {
   // árvores espalhadas (evitando caminhos, quadra e fonte)
   const kinds = ['verde','verde','amarelo','rosa','verde','amarelo'];
   let placed = 0, tries = 0;
-  while (placed < 16 && tries < 200) {
+  while (placed < 30 && tries < 500) {
     tries++;
     const a = Math.random()*Math.PI*2, r = rand(9, ARENA-3);
     const px = Math.cos(a)*r, pz = Math.sin(a)*r;
     if (Math.abs(px) < 3.5 || Math.abs(pz) < 3.5) continue;            // caminhos
     if (px > 10 && px < 24 && pz > -27 && pz < -7) continue;           // quadra
+    if (px > -29 && px < -15 && pz > -25 && pz < -7) continue;         // igreja
+    if (Math.hypot(px - 32, pz - 16) < 9) continue;                    // feira
+    if (Math.hypot(px + 30, pz - 26) < 10) continue;                   // parquinho
+    if (Math.hypot(px - 10, pz + 42) < 13) continue;                   // lago
     tree(kinds[placed % kinds.length], px, pz);
     placed++;
   }
 
   // POSTES de luz
-  for (let i = 0; i < 10; i++) {
-    const a = (i/10) * Math.PI*2;
+  for (let i = 0; i < 14; i++) {
+    const a = (i/14) * Math.PI*2;
     const post = new THREE.Group();
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(.09, .12, 4.5, 8),
       new THREE.MeshStandardMaterial({ color:0x2c2f36, roughness:.7 }));
@@ -462,8 +490,8 @@ function buildCity() {
 
   // CARROS estacionados na rua
   const carColors = [0xd9534f, 0xf0f0f0, 0x222831, 0x9aa7b8, 0x2d6cdf, 0xe0b54a];
-  for (let i = 0; i < 10; i++) {
-    const a = (i/10) * Math.PI*2 + .25;
+  for (let i = 0; i < 16; i++) {
+    const a = (i/16) * Math.PI*2 + .25;
     const car = new THREE.Group();
     const bodyMat = new THREE.MeshStandardMaterial({ color:carColors[i % carColors.length], roughness:.35, metalness:.45 });
     const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, .55, 4), bodyMat);
@@ -489,7 +517,7 @@ function buildCity() {
   const colors = ['#f2c14e','#4ea5d9','#e86a92','#7fb069','#f28c6a','#9b7ede','#fff3d6','#57c4ad','#d96c47','#7895b2'];
   const signs = ['PADARIA','LANCHONETE','BARBEARIA','MERCADINHO','AÇAITERIA','FARMÁCIA'];
   let signIdx = 0;
-  const N = 22;
+  const N = 30;
   for (let i = 0; i < N; i++) {
     const a = (i/N) * Math.PI*2;
     const w = rand(6, 10), h = rand(8, 26), d = rand(6, 10);
@@ -617,6 +645,119 @@ function buildIgreja() {
 }
 buildIgreja();
 
+// ---------- Feira livre ----------
+function buildFeira() {
+  const FX = 32, FZ = 16;
+  function lonaTex(c1, c2) {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const x = c.getContext('2d');
+    for (let i = 0; i < 8; i++) { x.fillStyle = i % 2 ? c1 : c2; x.fillRect(i*8, 0, 8, 64); }
+    return new THREE.CanvasTexture(c);
+  }
+  const cores = [['#e24b4a','#ffffff'],['#2d6cdf','#ffffff'],['#1f9e5f','#ffffff']];
+  let bi = 0;
+  for (let row = 0; row < 2; row++) for (let col = 0; col < 3; col++) {
+    const bx = FX + (col - 1) * 4.6, bz = FZ + (row ? 2.9 : -2.9);
+    const g = new THREE.Group();
+    const mesa = box(2.2, .85, 1.3, 0x8a6a45); mesa.position.y = .42; g.add(mesa);
+    const poleMat = new THREE.MeshStandardMaterial({ color:0x4d4d52, roughness:.7 });
+    [[-1, -.6],[1, -.6],[-1, .6],[1, .6]].forEach(([sx, sz]) => {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, 2.3, 6), poleMat);
+      p.position.set(sx, 1.15, sz); g.add(p);
+    });
+    const [c1, c2] = cores[bi % 3]; bi++;
+    const lona = new THREE.Mesh(new THREE.BoxGeometry(2.8, .1, 1.9),
+      new THREE.MeshStandardMaterial({ map:lonaTex(c1, c2), roughness:.9 }));
+    lona.position.y = 2.35; lona.rotation.z = .06; lona.castShadow = true; g.add(lona);
+    const caixote = box(.55, .5, .55, 0xb07a3f);
+    caixote.position.set(1.5, .25, .4); g.add(caixote);
+    g.position.set(bx, 0, bz);
+    obstacles.push({ rect:true, x:bx, z:bz, hw:1.4, hd:.95 });
+    scene.add(g);
+  }
+}
+
+// ---------- Parquinho ----------
+function buildParquinho() {
+  const PX = -30, PZ = 26;
+  const areia = new THREE.Mesh(new THREE.CircleGeometry(7, 28),
+    new THREE.MeshStandardMaterial({ color:0xe8d8a8, roughness:1 }));
+  areia.rotation.x = -Math.PI/2; areia.position.set(PX, .015, PZ);
+  areia.receiveShadow = true; scene.add(areia);
+
+  // Escorregador
+  const esc = new THREE.Group();
+  const rampa = box(1, .12, 3.6, 0xe24b4a);
+  rampa.rotation.x = -.55; rampa.position.set(0, 1.05, .9); esc.add(rampa);
+  const topo = box(1.1, .12, 1, 0xf0a02f); topo.position.set(0, 1.85, -1.1); esc.add(topo);
+  [[-.45,-1.4],[.45,-1.4],[-.45,-.8],[.45,-.8]].forEach(([sx, sz]) => {
+    const p = box(.1, 1.85, .1, 0x4d4d52); p.position.set(sx, .92, sz); esc.add(p);
+  });
+  const escada = box(.9, 1.9, .1, 0x4d4d52);
+  escada.rotation.x = .35; escada.position.set(0, .95, -1.7); esc.add(escada);
+  esc.position.set(PX - 3, 0, PZ);
+  obstacles.push({ x:PX - 3, z:PZ, r:1.6 });
+  scene.add(esc);
+
+  // Balanço
+  const bal = new THREE.Group();
+  const barMat = new THREE.MeshStandardMaterial({ color:0x2d6cdf, roughness:.6 });
+  [-1.6, 1.6].forEach(sx => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(.07, .07, 2.4, 8), barMat);
+    p.position.set(sx, 1.2, 0); bal.add(p);
+  });
+  const topBar = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, 3.4, 8), barMat);
+  topBar.rotation.z = Math.PI/2; topBar.position.y = 2.4; bal.add(topBar);
+  [-0.7, 0.7].forEach(sx => {
+    [-.25, .25].forEach(ox => {
+      const fio = new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, 1.5, 4),
+        new THREE.MeshStandardMaterial({ color:0x888888 }));
+      fio.position.set(sx + ox, 1.65, 0); bal.add(fio);
+    });
+    const assento = box(.6, .08, .25, 0x222831); assento.position.set(sx, .9, 0); bal.add(assento);
+  });
+  bal.position.set(PX + 3.2, 0, PZ - 2);
+  obstacles.push({ x:PX + 3.2, z:PZ - 2, r:1.8 });
+  scene.add(bal);
+
+  // Gira-gira
+  const gira = new THREE.Group();
+  const eixo = new THREE.Mesh(new THREE.CylinderGeometry(.08, .08, 1, 8),
+    new THREE.MeshStandardMaterial({ color:0x4d4d52 }));
+  eixo.position.y = .5; gira.add(eixo);
+  const disco = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, .1, 16),
+    new THREE.MeshStandardMaterial({ color:0x1f9e5f, roughness:.6 }));
+  disco.position.y = .45; disco.castShadow = true; gira.add(disco);
+  for (let i = 0; i < 4; i++) {
+    const hd = box(.06, .5, .06, 0xf0a02f);
+    hd.position.set(Math.cos(i*Math.PI/2), .75, Math.sin(i*Math.PI/2));
+    gira.add(hd);
+  }
+  gira.position.set(PX, 0, PZ + 3.6);
+  obstacles.push({ x:PX, z:PZ + 3.6, r:1.5 });
+  scene.add(gira);
+}
+
+// ---------- Lago ----------
+function buildLago() {
+  const LX = 10, LZ = -42, LR = 9;
+  const water = new THREE.Mesh(new THREE.CircleGeometry(LR, 32),
+    new THREE.MeshStandardMaterial({ color:0x3fa8c9, roughness:.15, metalness:.2 }));
+  water.rotation.x = -Math.PI/2; water.position.set(LX, .035, LZ); scene.add(water);
+  const borda = new THREE.Mesh(new THREE.RingGeometry(LR, LR + .9, 32),
+    new THREE.MeshStandardMaterial({ color:0xb8b0a0, roughness:1 }));
+  borda.rotation.x = -Math.PI/2; borda.position.set(LX, .045, LZ); scene.add(borda);
+  obstacles.push({ x:LX, z:LZ, r:LR + .5 });
+  for (let i = 0; i < 5; i++) {
+    const a = rand(0, Math.PI*2);
+    const pedra = new THREE.Mesh(new THREE.SphereGeometry(rand(.3, .6), 7, 6),
+      new THREE.MeshStandardMaterial({ color:0x8e8b80, roughness:1 }));
+    pedra.position.set(LX + Math.cos(a)*(LR + 1.4), .2, LZ + Math.sin(a)*(LR + 1.4));
+    pedra.scale.y = .6; pedra.castShadow = true; scene.add(pedra);
+  }
+}
+buildFeira(); buildParquinho(); buildLago();
+
 // ---------- Skins ----------
 function flagUSATex() {
   const c = document.createElement('canvas'); c.width = 128; c.height = 192;
@@ -659,7 +800,7 @@ let currentSkin = SKINS.cacador;
 
 // ---------- Jogador: INFINITY × HUNTER ----------
 const player = new THREE.Group();
-let rightArm, leftArm, rightLeg, leftLeg, sword, swordGlow, hammer, aura, playerGlow;
+let rightArm, leftArm, rightLeg, leftLeg, sword, swordGlow, hammer, minigunMesh, bombHand, aura, playerGlow;
 let matArmor, matArmorLight, matBoot, capeMesh;
 
 function buildPlayer() {
@@ -741,6 +882,37 @@ function buildPlayer() {
   hammer.position.y = -.75; hammer.rotation.x = Math.PI/2.2;
   hammer.visible = false;
   rightArm.add(hammer);
+
+  // Minigun (raro)
+  minigunMesh = new THREE.Group();
+  const mgBody = new THREE.Mesh(new THREE.CylinderGeometry(.13, .15, .55, 10),
+    new THREE.MeshStandardMaterial({ color:0x3d4148, roughness:.4, metalness:.5 }));
+  mgBody.position.y = .35; minigunMesh.add(mgBody);
+  const canoMat = new THREE.MeshStandardMaterial({ color:0x23262b, roughness:.35, metalness:.6 });
+  [[.07, 0], [-.04, .06], [-.04, -.06]].forEach(([ox, oz]) => {
+    const cano = new THREE.Mesh(new THREE.CylinderGeometry(.035, .035, 1.1, 8), canoMat);
+    cano.position.set(ox, 1, oz); minigunMesh.add(cano);
+  });
+  const boca = new THREE.Mesh(new THREE.CylinderGeometry(.12, .12, .08, 10), canoMat);
+  boca.position.y = 1.5; minigunMesh.add(boca);
+  minigunMesh.position.y = -.75; minigunMesh.rotation.x = Math.PI/2.2;
+  minigunMesh.visible = false;
+  rightArm.add(minigunMesh);
+
+  // Bomba na mão (raro)
+  bombHand = new THREE.Group();
+  const bCorpo = new THREE.Mesh(new THREE.SphereGeometry(.2, 10, 10),
+    new THREE.MeshStandardMaterial({ color:0x1f2937, roughness:.5 }));
+  const pavio = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, .18, 5),
+    new THREE.MeshStandardMaterial({ color:0xc9a26b }));
+  pavio.position.y = .25;
+  const brasa = new THREE.Mesh(new THREE.SphereGeometry(.045, 6, 6),
+    new THREE.MeshStandardMaterial({ color:0xff9f1c, emissive:0xff6b1c, emissiveIntensity:2 }));
+  brasa.position.y = .36;
+  bombHand.add(bCorpo, pavio, brasa);
+  bombHand.position.y = -.8;
+  bombHand.visible = false;
+  rightArm.add(bombHand);
   player.add(rightArm);
 
   // Aura do poder
@@ -976,7 +1148,9 @@ function startWave() {
 let acaiTimer = 5;
 
 function spawnAcai(atPos) {
-  const type = POWER_KEYS[Math.floor(Math.random() * POWER_KEYS.length)];
+  const raro = Math.random() < .3;
+  const pool = raro ? POWERS_RAROS : POWERS_COMUNS;
+  const type = pool[Math.floor(Math.random() * pool.length)];
   const P = POWERS[type];
   const g = new THREE.Group();
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(.3, .22, .5, 12),
@@ -989,9 +1163,14 @@ function spawnAcai(atPos) {
     new THREE.MeshStandardMaterial({ color:0x57c4ad, roughness:.6 }));
   straw.position.set(.12, .8, 0); straw.rotation.z = -.25; g.add(straw);
   // orbe indicando o poder
-  const orb = new THREE.Mesh(new THREE.SphereGeometry(.14, 10, 10),
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(P.raro ? .19 : .14, 10, 10),
     new THREE.MeshStandardMaterial({ color:P.cor, emissive:P.cor, emissiveIntensity:1.4 }));
   orb.position.y = 1.25; g.add(orb);
+  if (P.raro) {
+    const r2 = new THREE.Mesh(new THREE.RingGeometry(.26, .33, 18),
+      new THREE.MeshBasicMaterial({ color:P.cor, side:THREE.DoubleSide, transparent:true, opacity:.9 }));
+    r2.position.y = 1.25; r2.rotation.x = Math.PI/3; g.add(r2);
+  }
   const ring = new THREE.Mesh(new THREE.RingGeometry(.55, .7, 22),
     new THREE.MeshBasicMaterial({ color:P.cor, side:THREE.DoubleSide, transparent:true, opacity:.85 }));
   ring.rotation.x = -Math.PI/2; ring.position.y = .04; g.add(ring);
@@ -1010,11 +1189,13 @@ function setPower(type) {
   playerGlow.color.setHex(P.cor);
   playerGlow.emissive.setHex(P.cor);
   hammer.visible = (type === 'martelo');
-  sword.visible = (type !== 'martelo');
+  minigunMesh.visible = (type === 'minigun');
+  bombHand.visible = (type === 'explosivo');
+  sword.visible = !(hammer.visible || minigunMesh.visible || bombHand.visible);
   document.getElementById('powerFill').style.background = P.css;
   const pn = document.getElementById('powerName');
   pn.style.display = 'block'; pn.style.color = P.css; pn.textContent = P.nome;
-  showMsg('🍇 ' + P.nome + '!');
+  showMsg('🍇 ' + (P.raro ? 'RARO: ' : '') + P.nome + '!');
   sfx('acai');
   updatePowerHud();
 }
@@ -1022,9 +1203,14 @@ function setPower(type) {
 function clearPower() {
   state.power = 0; state.powerType = null;
   aura.visible = false;
-  hammer.visible = false; sword.visible = true;
-  playerGlow.color.setHex(currentSkin.glow);
-  playerGlow.emissive.setHex(currentSkin.glowE);
+  hammer.visible = false; minigunMesh.visible = false; bombHand.visible = false;
+  sword.visible = true;
+  if (state.deus <= 0) {
+    playerGlow.color.setHex(currentSkin.glow);
+    playerGlow.emissive.setHex(currentSkin.glowE);
+  } else {
+    aura.visible = true;
+  }
   document.getElementById('powerName').style.display = 'none';
   updatePowerHud();
 }
@@ -1054,14 +1240,16 @@ function spawnHeart(pos) {
 // ---------- Aura (poder supremo) ----------
 let auraTimer = 4;
 let supremoAtivo = false;
+let auraMilestone = 10;
+let deusTick = .5;
 
 function spawnAura() {
   const g = new THREE.Group();
   const orb = new THREE.Mesh(new THREE.SphereGeometry(.22, 12, 12),
-    new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xc9a6ff, emissiveIntensity:2.2, roughness:.2 }));
+    new THREE.MeshStandardMaterial({ color:0xc9a6ff, emissive:0x9b5cf6, emissiveIntensity:2.4, roughness:.2 }));
   orb.position.y = .9; g.add(orb);
   const halo = new THREE.Mesh(new THREE.RingGeometry(.34, .42, 22),
-    new THREE.MeshBasicMaterial({ color:0xd9c2ff, side:THREE.DoubleSide, transparent:true, opacity:.85 }));
+    new THREE.MeshBasicMaterial({ color:0xb26bff, side:THREE.DoubleSide, transparent:true, opacity:.85 }));
   halo.position.y = .9; g.add(halo);
   g.position.copy(spawnPosNearPlayer(6, 24));
   auras.push(g); scene.add(g);
@@ -1069,15 +1257,18 @@ function spawnAura() {
 
 function updateAuraHud() {
   const el = document.getElementById('auraCount');
-  el.textContent = '⚡ AURA ' + state.aura + '/10';
-  el.style.color = state.aura >= 7 ? '#c9a6ff' : '#ffd166';
+  el.textContent = '⚡ AURA ' + state.aura + ' / ' + auraMilestone;
+  el.style.color = '#c9a6ff';
 }
 
-function bigMsgShow(text, delay) {
+function bigMsgShow(text, delay, gold) {
   setTimeout(() => {
     if (!state.playing) return;
     const el = document.getElementById('bigMsg');
     el.textContent = text;
+    el.style.backgroundImage = gold
+      ? 'linear-gradient(95deg, #fff7d6 10%, #ffd166 50%, #ff9f1c 90%)'
+      : 'linear-gradient(95deg, #ffffff 10%, #c9a6ff 50%, #7c4dff 90%)';
     el.style.transition = 'none';
     el.style.opacity = 0;
     el.style.transform = 'translate(-50%,-50%) scale(.8)';
@@ -1090,25 +1281,40 @@ function bigMsgShow(text, delay) {
   }, delay);
 }
 
-function triggerSupremo() {
+function triggerSupremo(tier) {
   if (supremoAtivo) return;
   supremoAtivo = true;
-  state.aura = 0;
-  updateAuraHud();
-  state.invuln = 3.4;                       // intocável durante a cerimônia
+  const palavras = [
+    ['AURA'],
+    ['AURA', 'AURA + EGO'],
+    ['AURA', 'AURA + EGO', 'AURA SUPREMA', 'AURA DO ANJO CAÍDO'],
+  ][tier - 1];
+  state.invuln = palavras.length * .9 + 1.4;          // intocável durante a cerimônia
   sfx('riser');
-  bigMsgShow('AURA', 0);
-  bigMsgShow('AURA + EGO', 900);
-  bigMsgShow('AURA SUPREMA', 1800);
+  palavras.forEach((p, i) =>
+    bigMsgShow(p, i * 900, tier === 3 && i === palavras.length - 1));
   setTimeout(() => {
     supremoAtivo = false;
-    if (state.playing) novaSuprema();
-  }, 2650);
+    if (!state.playing) return;
+    if (tier === 1) {
+      novaSuprema(10, 17, 0xffffff);
+    } else if (tier === 2) {
+      novaSuprema(14, 22, 0xc9a6ff);
+      state.hp = Math.min(MAX_HP, state.hp + 2);      // ego cura
+      updateHearts();
+      sfx('heal');
+    } else {
+      novaSuprema(16, 25, 0xffd166);
+      state.deus = 10;                                 // MODO DEUS
+      deusTick = .5;
+      showMsg('😇 ANJO CAÍDO — IMUNE 10s');
+    }
+  }, palavras.length * 900 - 100);
 }
 
-function novaSuprema() {
+function novaSuprema(dmg, raio, cor) {
   const ring = new THREE.Mesh(new THREE.RingGeometry(.8, 1.7, 44),
-    new THREE.MeshBasicMaterial({ color:0xffffff, side:THREE.DoubleSide, transparent:true, opacity:.95 }));
+    new THREE.MeshBasicMaterial({ color:cor, side:THREE.DoubleSide, transparent:true, opacity:.95 }));
   ring.rotation.x = -Math.PI/2;
   ring.position.copy(player.position); ring.position.y = .3;
   scene.add(ring);
@@ -1118,8 +1324,8 @@ function novaSuprema() {
   for (const e of enemies) {
     if (e.dying > 0) continue;
     const to = e.mesh.position.clone().sub(player.position); to.y = 0;
-    if (to.length() > 17) continue;
-    hurtEnemy(e, 10, to.normalize(), 6);
+    if (to.length() > raio) continue;
+    hurtEnemy(e, dmg, to.normalize(), 6);
   }
   showMsg('💥 PODER MÁXIMO!');
 }
@@ -1139,6 +1345,54 @@ function showMsg(t) {
   el.textContent = t; el.style.opacity = 1;
   clearTimeout(msgTimer);
   msgTimer = setTimeout(() => el.style.opacity = 0, 1700);
+}
+
+// ---------- Minimapa ----------
+const mmCtx = document.getElementById('minimap').getContext('2d');
+function mmDot(M, x, z, cor, r) {
+  const [mx, mz] = M(x, z);
+  mmCtx.fillStyle = cor;
+  mmCtx.beginPath(); mmCtx.arc(mx, mz, r, 0, Math.PI*2); mmCtx.fill();
+}
+function drawMinimap() {
+  const S = 220, half = S/2, sc = (half - 8) / ARENA;
+  const M = (x, z) => [half + x*sc, half + z*sc];
+  mmCtx.clearRect(0, 0, S, S);
+  mmCtx.fillStyle = 'rgba(8,12,24,.62)';
+  mmCtx.beginPath(); mmCtx.arc(half, half, half - 2, 0, Math.PI*2); mmCtx.fill();
+  mmCtx.strokeStyle = 'rgba(178,107,255,.55)'; mmCtx.lineWidth = 3;
+  mmCtx.beginPath(); mmCtx.arc(half, half, ARENA*sc, 0, Math.PI*2); mmCtx.stroke();
+  // regiões
+  let p = M(10, -42);
+  mmCtx.fillStyle = 'rgba(63,168,201,.95)';
+  mmCtx.beginPath(); mmCtx.arc(p[0], p[1], 9*sc, 0, Math.PI*2); mmCtx.fill();          // lago
+  p = M(17, -17);
+  mmCtx.fillStyle = 'rgba(45,134,89,.95)';
+  mmCtx.fillRect(p[0]-5.5*sc, p[1]-8.2*sc, 11*sc, 16.5*sc);                            // quadra
+  p = M(-22, -16);
+  mmCtx.fillStyle = 'rgba(245,234,214,.95)';
+  mmCtx.fillRect(p[0]-5*sc, p[1]-6.5*sc, 10*sc, 13*sc);                                // igreja
+  p = M(32, 16);
+  mmCtx.fillStyle = 'rgba(240,160,47,.95)';
+  mmCtx.fillRect(p[0]-6*sc, p[1]-4.5*sc, 12*sc, 9*sc);                                 // feira
+  p = M(-30, 26);
+  mmCtx.fillStyle = 'rgba(232,216,168,.95)';
+  mmCtx.beginPath(); mmCtx.arc(p[0], p[1], 7*sc, 0, Math.PI*2); mmCtx.fill();          // parquinho
+  // itens
+  for (const a of auras) mmDot(M, a.position.x, a.position.z, '#ffd166', 2.6);
+  for (const a of acais) mmDot(M, a.position.x, a.position.z, '#b26bff', 2.6);
+  for (const h of heartDrops) mmDot(M, h.position.x, h.position.z, '#ff6b8a', 2.2);
+  // monstros
+  for (const e of enemies) {
+    if (e.dying > 0) continue;
+    mmDot(M, e.mesh.position.x, e.mesh.position.z, e.elite ? '#ff8800' : '#ff4444', e.elite ? 4 : 2.6);
+  }
+  // jogador
+  const [mx, mz] = M(player.position.x, player.position.z);
+  mmCtx.fillStyle = '#ffffff';
+  mmCtx.beginPath(); mmCtx.arc(mx, mz, 4, 0, Math.PI*2); mmCtx.fill();
+  mmCtx.strokeStyle = '#b26bff'; mmCtx.lineWidth = 2;
+  mmCtx.beginPath(); mmCtx.arc(mx, mz, 6.5, 0, Math.PI*2); mmCtx.stroke();
 }
 
 // ---------- Áudio sintetizado (sem arquivos) ----------
@@ -1303,16 +1557,40 @@ function sfx(type) {
     o.frequency.setValueAtTime(1320, t + .07);
     gn.gain.setValueAtTime(.1, t); gn.gain.exponentialRampToValueAtTime(.001, t + .25);
     o.start(t); o.stop(t + .26);
+  } else if (type === 'shot') {
+    o.type = 'square'; o.frequency.setValueAtTime(720, t);
+    o.frequency.exponentialRampToValueAtTime(280, t + .05);
+    gn.gain.setValueAtTime(.07, t); gn.gain.exponentialRampToValueAtTime(.001, t + .06);
+    o.start(t); o.stop(t + .07);
+  } else if (type === 'throw') {
+    o.type = 'sine'; o.frequency.setValueAtTime(420, t);
+    o.frequency.exponentialRampToValueAtTime(680, t + .15);
+    gn.gain.setValueAtTime(.07, t); gn.gain.exponentialRampToValueAtTime(.001, t + .18);
+    o.start(t); o.stop(t + .19);
+    playNoise(.12, 3500, .05, 'highpass');
+  } else if (type === 'explode') {
+    o.type = 'sine'; o.frequency.setValueAtTime(110, t);
+    o.frequency.exponentialRampToValueAtTime(35, t + .35);
+    gn.gain.setValueAtTime(.28, t); gn.gain.exponentialRampToValueAtTime(.001, t + .4);
+    o.start(t); o.stop(t + .42);
+    playNoise(.35, 600, .22);
   }
 }
 
 // ---------- Combate ----------
 function attack() {
   if (!state.playing || state.attackCd > 0) return;
+  const type = state.power > 0 ? state.powerType : null;
+  if (type === 'minigun') return;                       // a minigun atira sozinha
+  if (type === 'explosivo') {
+    state.attackT = .3; state.attackCd = .7; state.didHit = true;
+    throwBomb();
+    return;
+  }
   state.attackT = .35;
   state.attackCd = .45;
   state.didHit = false;
-  sfx(state.power > 0 && state.powerType === 'martelo' ? 'smash' : 'slash');
+  sfx(type === 'martelo' ? 'smash' : 'slash');
 }
 
 function hurtEnemy(e, dmg, dir, kb) {
@@ -1381,8 +1659,63 @@ function fireLaser() {
   sfx('laser');
 }
 
+let minigunCd = 0;
+function fireMinigun() {
+  const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(player.quaternion);
+  let alvo = null, melhor = 17;
+  for (const e of enemies) {
+    if (e.dying > 0) continue;
+    const to = e.mesh.position.clone().sub(player.position); to.y = 0;
+    const d = to.length();
+    if (d > 16 || d < .5) continue;
+    to.normalize();
+    if (fwd.dot(to) < .55) continue;                    // cone frontal
+    if (d < melhor) { melhor = d; alvo = e; }
+  }
+  let dir = fwd, dist = 13;
+  if (alvo) {
+    dir = alvo.mesh.position.clone().sub(player.position); dir.y = 0;
+    dist = dir.length(); dir.normalize();
+    hurtEnemy(alvo, 1, dir.clone(), .4);
+  }
+  const tr = new THREE.Mesh(new THREE.BoxGeometry(.05, .05, dist),
+    new THREE.MeshBasicMaterial({ color:0xffe14d, transparent:true, opacity:.9 }));
+  tr.position.copy(player.position).add(dir.clone().multiplyScalar(dist/2));
+  tr.position.y = 1.5;
+  tr.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+  scene.add(tr); beams.push(tr);
+  sfx('shot');
+}
+
+function throwBomb() {
+  const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(player.quaternion);
+  const b = new THREE.Mesh(new THREE.SphereGeometry(.22, 10, 10),
+    new THREE.MeshStandardMaterial({ color:0x1f2937, roughness:.5 }));
+  b.castShadow = true;
+  b.position.copy(player.position); b.position.y = 1.6;
+  scene.add(b);
+  bombs.push({ mesh:b, vel: fwd.multiplyScalar(9).setY(4.5) });
+  sfx('throw');
+}
+
+function explode(pos) {
+  addShake(.5);
+  sfx('explode');
+  const fl = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10),
+    new THREE.MeshBasicMaterial({ color:0xffa24d, transparent:true, opacity:.85 }));
+  fl.position.copy(pos); fl.position.y = .8;
+  scene.add(fl);
+  explosions.push({ mesh:fl, t:0 });
+  for (const e of enemies) {
+    if (e.dying > 0) continue;
+    const to = e.mesh.position.clone().sub(pos); to.y = 0;
+    if (to.length() > 4.2) continue;
+    hurtEnemy(e, 4, to.normalize(), 2.5);
+  }
+}
+
 function damagePlayer(amount) {
-  if (state.invuln > 0 || state.gameOver) return;
+  if (state.invuln > 0 || state.gameOver || state.deus > 0) return;
   state.hp = Math.max(0, state.hp - amount);
   state.invuln = 1.2;
   updateHearts();
@@ -1398,17 +1731,86 @@ function endGame() {
   state.playing = false;
   state.gameOver = true;
   stopMusic();
+  const score = state.kills * 10 + state.wave * 100;
   document.getElementById('finalStats').innerHTML =
-    `Monstros derrotados: <b>${state.kills}</b><br>Chegou até a onda: <b>${state.wave}</b>`;
+    `Monstros derrotados: <b>${state.kills}</b> &nbsp;·&nbsp; Onda: <b>${state.wave}</b><br>Pontuação: <b>${score}</b>`;
+  submitScore();
   document.getElementById('gameover').style.display = 'flex';
   document.getElementById('hud').style.display = 'none';
   document.getElementById('joyBase').style.display = 'none';
   document.getElementById('atkBtn').style.display = 'none';
   document.getElementById('jmpBtn').style.display = 'none';
+  document.getElementById('minimap').style.display = 'none';
 }
+
+// ---------- Ranking (Supabase) ----------
+const SB_URL = 'https://fjrabocvxnjjujyrgxto.supabase.co';
+const SB_KEY = 'sb_publishable_vUGHSaE67wxis2C6_wAe6Q_3k8oIP3N';
+const SB_HEADERS = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY };
+
+let nick = 'Hunter#' + Math.floor(1000 + Math.random() * 9000);
+try { const saved = localStorage.getItem('ixh_nick'); if (saved) nick = saved; } catch (e) {}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+async function sbInsert(row) {
+  await fetch(SB_URL + '/rest/v1/ranking', {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type':'application/json', 'Prefer':'return=minimal' }, SB_HEADERS),
+    body: JSON.stringify(row),
+  });
+}
+async function sbTop10() {
+  const r = await fetch(SB_URL + '/rest/v1/ranking?select=nick,score,wave,kills&order=score.desc&limit=10',
+    { headers: SB_HEADERS });
+  return r.json();
+}
+async function sbPosition(score) {
+  const r = await fetch(SB_URL + '/rest/v1/ranking?select=id&score=gt.' + score,
+    { headers: Object.assign({ 'Prefer':'count=exact', 'Range':'0-0' }, SB_HEADERS) });
+  const cr = r.headers.get('content-range');           // ex: "0-0/42"
+  const acima = cr ? parseInt(cr.split('/')[1]) || 0 : 0;
+  return acima + 1;
+}
+
+async function submitScore() {
+  const el = document.getElementById('rankList');
+  const score = state.kills * 10 + state.wave * 100;
+  el.innerHTML = '<div class="rk-loading">Enviando pontuação...</div>';
+  try {
+    await sbInsert({ nick, kills: state.kills, wave: state.wave, score });
+    const [top, posicao] = await Promise.all([sbTop10(), sbPosition(score)]);
+    let html = '<div class="rk-pos">Você ficou em <b>#' + posicao + '</b> com <b>' + score + '</b> pts</div>';
+    html += '<div class="rk-title">🏆 TOP 10 MUNDIAL</div>';
+    let destaquei = false;
+    top.forEach((r2, i) => {
+      const me = !destaquei && r2.nick === nick && r2.score === score;
+      if (me) destaquei = true;
+      html += '<div class="rk-row' + (me ? ' me' : '') + '"><span>' + (i+1) + '. ' +
+        escapeHtml(r2.nick) + '</span><span>' + r2.score + ' pts · onda ' + r2.wave + '</span></div>';
+    });
+    el.innerHTML = html;
+  } catch (err) {
+    el.innerHTML = '<div class="rk-loading">Sem conexão com o ranking 😞</div>';
+  }
+}
+
+const nickInput = document.getElementById('nickInput');
+nickInput.value = nick;
+nickInput.addEventListener('input', () => {
+  const v = nickInput.value.trim().slice(0, 20);
+  if (v) {
+    nick = v;
+    try { localStorage.setItem('ixh_nick', nick); } catch (e) {}
+  }
+});
 
 // ---------- Input: teclado ----------
 addEventListener('keydown', e => {
+  if (e.target && e.target.tagName === 'INPUT') return;   // digitando o nick
   keys[e.code] = true;
   if (e.code === 'Space') { e.preventDefault(); jump(); }
   if (e.code === 'KeyJ' || e.code === 'KeyK') attack();
@@ -1495,13 +1897,17 @@ function startGame() {
   beams.forEach(b => scene.remove(b)); beams = [];
   auras.forEach(a => scene.remove(a)); auras = [];
   novas.forEach(n => scene.remove(n.mesh)); novas = [];
+  bombs.forEach(b => scene.remove(b.mesh)); bombs = [];
+  explosions.forEach(x => scene.remove(x.mesh)); explosions = [];
+  auraMilestone = 10;
+  minigunCd = 0; deusTick = .5;
   acaiTimer = 5;
   auraTimer = 4;
   supremoAtivo = false;
   document.getElementById('bigMsg').style.opacity = 0;
   vy = 0; grounded = true;
   Object.assign(state, { playing:true, gameOver:false, hp:MAX_HP, kills:0, wave:0,
-    invuln:0, attackT:0, attackCd:0, power:0, powerType:null, aura:0 });
+    invuln:0, attackT:0, attackCd:0, power:0, powerType:null, aura:0, deus:0 });
   clearPower();
   player.position.set(0, 0, 10);
   player.visible = true;
@@ -1509,6 +1915,7 @@ function startGame() {
   document.getElementById('startScreen').style.display = 'none';
   document.getElementById('gameover').style.display = 'none';
   document.getElementById('hud').style.display = 'flex';
+  document.getElementById('minimap').style.display = 'block';
   if (isTouch) {
     document.getElementById('joyBase').style.display = 'block';
     document.getElementById('atkBtn').style.display = 'block';
@@ -1575,6 +1982,10 @@ function animate() {
     if (cl.position.x > 95) cl.position.x = -95;
   }
 
+  // sol acompanha o jogador (sombras nítidas mesmo no mapa grande)
+  sun.position.set(player.position.x + 28, 42, player.position.z + 18);
+  sun.target.position.set(player.position.x, 0, player.position.z);
+
   if (state.playing) {
     // --- Movimento ---
     let mx = 0, mz = 0;
@@ -1633,6 +2044,10 @@ function animate() {
       if (!state.didHit && p > .4) { state.didHit = true; applyHit(); }
     } else {
       rightArm.rotation.x = moving ? swing * .7 : 0;
+      rightArm.rotation.y = 0;
+    }
+    if (state.power > 0 && state.powerType === 'minigun') {
+      rightArm.rotation.x = -1.45;                  // mirando para frente
       rightArm.rotation.y = 0;
     }
     if (state.attackCd > 0) state.attackCd -= dt;
@@ -1699,12 +2114,73 @@ function animate() {
       if (state.power <= 0) clearPower();
     }
 
-    // --- Lasers desvanecendo ---
+    // --- Lasers e tracers desvanecendo ---
     for (let i = beams.length - 1; i >= 0; i--) {
       const b = beams[i];
       b.material.opacity -= dt * 5;
       b.scale.x = b.scale.y = 1 + (0.95 - b.material.opacity) * 2;
       if (b.material.opacity <= 0) { scene.remove(b); beams.splice(i, 1); }
+    }
+
+    // --- Minigun automática ---
+    if (state.power > 0 && state.powerType === 'minigun') {
+      minigunCd -= dt;
+      if (minigunCd <= 0) { minigunCd = .09; fireMinigun(); }
+    }
+
+    // --- Bombas em arco ---
+    for (let i = bombs.length - 1; i >= 0; i--) {
+      const bm = bombs[i];
+      bm.vel.y -= 18 * dt;
+      bm.mesh.position.addScaledVector(bm.vel, dt);
+      bm.mesh.rotation.x += dt * 8;
+      if (bm.mesh.position.y <= .18) {
+        explode(bm.mesh.position.clone());
+        scene.remove(bm.mesh); bombs.splice(i, 1);
+      }
+    }
+
+    // --- Explosões ---
+    for (let i = explosions.length - 1; i >= 0; i--) {
+      const ex = explosions[i];
+      ex.t += dt;
+      const s = 1 + ex.t * 11;
+      ex.mesh.scale.set(s, s, s);
+      ex.mesh.material.opacity = Math.max(0, .85 * (1 - ex.t / .35));
+      if (ex.t > .35) { scene.remove(ex.mesh); explosions.splice(i, 1); }
+    }
+
+    // --- Modo Deus: Aura do Anjo Caído ---
+    if (state.deus > 0) {
+      state.deus -= dt;
+      playerGlow.color.setHex(0xfff1c9);
+      playerGlow.emissive.setHex(0xffd166);
+      aura.visible = true;
+      aura.material.color.setHex(0xffd166);
+      aura.rotation.z += dt * 5;
+      aura.material.opacity = .6 + Math.sin(t*10) * .25;
+      deusTick -= dt;
+      if (deusTick <= 0) {                       // espinhos sagrados
+        deusTick = .5;
+        for (const e of enemies) {
+          if (e.dying > 0) continue;
+          const to = e.mesh.position.clone().sub(player.position); to.y = 0;
+          if (to.length() > 2.6) continue;
+          hurtEnemy(e, 2, to.normalize(), 1.8);
+        }
+      }
+      if (state.deus <= 0) {
+        state.deus = 0;
+        if (state.power > 0 && state.powerType) {
+          const P = POWERS[state.powerType];
+          playerGlow.color.setHex(P.cor); playerGlow.emissive.setHex(P.cor);
+          aura.material.color.setHex(P.cor);
+        } else {
+          playerGlow.color.setHex(currentSkin.glow);
+          playerGlow.emissive.setHex(currentSkin.glowE);
+          aura.visible = false;
+        }
+      }
     }
 
     // --- Corações ---
@@ -1735,7 +2211,12 @@ function animate() {
         state.aura++;
         updateAuraHud();
         sfx('aura');
-        if (state.aura >= 10) triggerSupremo();
+        if (state.aura >= auraMilestone) {
+          const tier = Math.min(3, Math.round(auraMilestone / 10));
+          auraMilestone += 10;
+          updateAuraHud();
+          triggerSupremo(tier);
+        }
       }
     }
 
@@ -1763,6 +2244,8 @@ function animate() {
         if (state.playing && enemies.length === 0) startWave();
       }, 1800);
     }
+
+    drawMinimap();
   }
 
   // --- Câmera ---
