@@ -26,6 +26,13 @@
     background:rgba(255,255,255,.15); overflow:hidden; }
   #powerFill { height:100%; width:100%; background:#b26bff; }
   #powerName { display:none; margin-top:3px; font-size:10px; font-weight:700; letter-spacing:1px; color:rgba(255,255,255,.8); }
+  #auraCount { margin-top:5px; font-size:12px; font-weight:800; letter-spacing:1px; color:#ffd166; }
+  #bigMsg { position:fixed; top:42%; left:50%; transform:translate(-50%,-50%) scale(.8); z-index:15;
+    font-size:clamp(38px, 11vw, 92px); font-weight:900; letter-spacing:8px; text-align:center; white-space:nowrap;
+    background:linear-gradient(95deg, #ffffff 10%, #c9a6ff 50%, #7c4dff 90%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 0 30px rgba(178,107,255,.9));
+    opacity:0; transition:opacity .25s, transform .8s; pointer-events:none; }
   #stats { text-align:right; color:#fff; }
   #waveLabel { font-size:11px; font-weight:700; letter-spacing:2px; color:#ffd166; }
   #kills { font-size:20px; font-weight:800; }
@@ -76,6 +83,15 @@
   .powers-list { margin-top:16px; font-size:clamp(12px,3.2vw,14px); color:rgba(255,255,255,.8); line-height:2; }
   .powers-list b.p1 { color:#b26bff; } .powers-list b.p2 { color:#ff9f1c; } .powers-list b.p3 { color:#ff3b5c; }
   .controls-hint { margin-top:18px; color:rgba(255,255,255,.45); font-size:13px; line-height:1.8; letter-spacing:.5px; }
+  .skins-label { margin-top:20px; font-size:12px; font-weight:800; letter-spacing:3px; color:rgba(255,255,255,.55); }
+  .skins-row { margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .skin-btn { display:flex; align-items:center; gap:8px; padding:10px 16px; border-radius:30px;
+    background:rgba(255,255,255,.06); border:2px solid rgba(255,255,255,.15);
+    color:rgba(255,255,255,.8); font-size:13px; font-weight:700; letter-spacing:1px; cursor:pointer; }
+  .skin-btn .dot { width:14px; height:14px; border-radius:50%; }
+  .skin-btn.sel { border-color:#b26bff; background:rgba(178,107,255,.18); color:#fff;
+    box-shadow:0 0 16px rgba(178,107,255,.35); }
+  .skin-btn:active { transform:scale(.95); }
   .btn { margin-top:26px; padding:16px 52px; font-size:18px; font-weight:800; letter-spacing:3px;
     color:#fff; background:linear-gradient(90deg, #b26bff, #7c4dff); border:none; border-radius:50px;
     box-shadow:0 0 32px rgba(178,107,255,.55); cursor:pointer; }
@@ -96,12 +112,15 @@
     <div id="hearts"></div>
     <div id="powerBar"><div id="powerFill"></div></div>
     <div id="powerName"></div>
+    <div id="auraCount">⚡ AURA 0/10</div>
   </div>
   <div class="hud-card" id="stats">
     <div id="waveLabel">ONDA 1</div>
-    <div id="kills">0 <span>ESQUELETOS</span></div>
+    <div id="kills">0 <span>MONSTROS</span></div>
   </div>
 </div>
+
+<div id="bigMsg"></div>
 
 <div id="msg"></div>
 <div id="dmg"></div>
@@ -117,6 +136,13 @@
   <div class="subtitle">Um caçador entre dimensões chegou à cidade. Derrote as ondas de esqueletos — e cuidado com os <b>GIGANTES</b>.</div>
   <div class="powers-list">🍇 Cada copo de açaí dá um poder diferente (o novo substitui o anterior):<br>
     <b class="p1">● CORTE DO INFINITO</b> &nbsp; <b class="p2">● MARTELO DIMENSIONAL</b> &nbsp; <b class="p3">● RAIO LASER</b></div>
+  <div class="skins-label">ESCOLHA SUA SKIN</div>
+  <div class="skins-row">
+    <button class="skin-btn sel" data-skin="cacador"><span class="dot" style="background:#b26bff"></span>CAÇADOR</button>
+    <button class="skin-btn" data-skin="patriota"><span class="dot" style="background:linear-gradient(180deg,#b22234 33%,#fff 33%,#fff 66%,#3c3b6e 66%)"></span>PATRIOTA</button>
+    <button class="skin-btn" data-skin="brasil"><span class="dot" style="background:linear-gradient(180deg,#009c3b 50%,#ffdf00 50%)"></span>BRASIL</button>
+    <button class="skin-btn" data-skin="neon"><span class="dot" style="background:#00e5ff"></span>NEON</button>
+  </div>
   <div class="controls-hint" id="hintDesktop">🎮 W A S D — mover &nbsp;|&nbsp; ESPAÇO — pular &nbsp;|&nbsp; CLIQUE ou J — atacar</div>
   <div class="controls-hint" id="hintTouch" style="display:none">🕹️ Joystick — mover &nbsp;|&nbsp; ↑ — pular &nbsp;|&nbsp; ⚔️ — atacar</div>
   <button class="btn" id="startBtn">COMEÇAR</button>
@@ -153,13 +179,13 @@ const state = {
   playing:false, gameOver:false,
   hp:MAX_HP, kills:0, wave:0,
   invuln:0, attackT:0, attackCd:0, didHit:false,
-  power:0, powerType:null,
+  power:0, powerType:null, aura:0,
 };
 
 const keys = {};
 const joy = { active:false, id:null, dx:0, dy:0 };
 const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-let enemies = [], acais = [], heartDrops = [], beams = [], clouds = [];
+let enemies = [], acais = [], heartDrops = [], beams = [], clouds = [], auras = [], novas = [];
 
 // ---------- Cena ----------
 const scene = new THREE.Scene();
@@ -242,7 +268,15 @@ function makeFacade(baseColor) {
 }
 
 // ---------- Cidade realista ----------
+const obstacles = [];   // colisores circulares {x, z, r}
+
 function buildCity() {
+  // CHÃO EXTERNO (concreto sob a rua e os prédios — nada flutua)
+  const outer = new THREE.Mesh(new THREE.CircleGeometry(170, 48),
+    new THREE.MeshStandardMaterial({ color:0x9a958a, roughness:1 }));
+  outer.rotation.x = -Math.PI/2; outer.position.y = -.02;
+  outer.receiveShadow = true; scene.add(outer);
+
   // GRAMA com manchas naturais
   const grassTex = makeTexture((x,w,h) => {
     x.fillStyle = '#5e9c4a'; x.fillRect(0,0,w,h);
@@ -348,6 +382,7 @@ function buildCity() {
       c.position.set(cx, cy, cz); c.castShadow = true; g.add(c);
     });
     g.position.set(px, 0, pz);
+    obstacles.push({ x:px, z:pz, r:.65 });
     scene.add(g);
   }
   function palm(px, pz) {
@@ -365,6 +400,7 @@ function buildCity() {
       leaf.castShadow = true; g.add(leaf);
     }
     g.position.set(px, 0, pz);
+    obstacles.push({ x:px, z:pz, r:.6 });
     scene.add(g);
   }
   // palmeiras perto da fonte
@@ -396,6 +432,7 @@ function buildCity() {
       new THREE.MeshStandardMaterial({ color:0xfff2b0, emissive:0xffe28a, emissiveIntensity:.9 }));
     lamp.position.y = 4.55; post.add(lamp);
     post.position.set(Math.cos(a)*(ARENA-1.5), 0, Math.sin(a)*(ARENA-1.5));
+    obstacles.push({ x:post.position.x, z:post.position.z, r:.4 });
     scene.add(post);
   }
 
@@ -407,6 +444,7 @@ function buildCity() {
     bench.lookAt(0, .5, 0);
     const legs = box(2, .5, .12, 0x4d3520);
     legs.position.y = -.3; bench.add(legs);
+    obstacles.push({ x:bench.position.x, z:bench.position.z, r:1.3 });
     scene.add(bench);
   }
 
@@ -419,6 +457,7 @@ function buildCity() {
   bancaSign.position.set(0, 1.85, 1.12); banca.add(bancaSign);
   banca.position.set(-12, 0, 8);
   banca.lookAt(0, 0, 0); banca.position.y = 0;
+  obstacles.push({ x:-12, z:8, r:2 });
   scene.add(banca);
 
   // CARROS estacionados na rua
@@ -492,37 +531,168 @@ function buildCity() {
 }
 buildCity();
 
+// ---------- Igreja ----------
+const IGREJA = { x:-22, z:-16, hw:5, hd:6.5 };               // centro e meia-largura/profundidade
+const IGREJA_DOOR = new THREE.Vector3(-22, 0, -8);           // frente da porta
+let igrejaRoof = null;
+
+function buildIgreja() {
+  const C = IGREJA;
+  const wallMat = new THREE.MeshStandardMaterial({ color:0xf5ead6, roughness:.95 });
+  const wallH = 4.5;
+  const mkWall = (w, h, d, px, pz, py) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+    m.position.set(px, py !== undefined ? py : h/2, pz);
+    m.castShadow = true; m.receiveShadow = true;
+    scene.add(m); return m;
+  };
+
+  // Paredes (fundo, laterais, frente com vão da porta)
+  mkWall(10, wallH, .5, C.x, C.z - C.hd);                          // fundo
+  mkWall(.5, wallH, 13, C.x - C.hw, C.z);                          // esquerda
+  mkWall(.5, wallH, 13, C.x + C.hw, C.z);                          // direita
+  mkWall(3.7, wallH, .5, C.x - 3.15, C.z + C.hd);                  // frente esq
+  mkWall(3.7, wallH, .5, C.x + 3.15, C.z + C.hd);                  // frente dir
+  mkWall(2.6, 1.2, .5, C.x, C.z + C.hd, wallH - .6);               // verga sobre a porta
+
+  // Colisores das paredes
+  obstacles.push(
+    { rect:true, x:C.x,        z:C.z - C.hd, hw:5,    hd:.3 },
+    { rect:true, x:C.x - C.hw, z:C.z,        hw:.3,   hd:6.5 },
+    { rect:true, x:C.x + C.hw, z:C.z,        hw:.3,   hd:6.5 },
+    { rect:true, x:C.x - 3.15, z:C.z + C.hd, hw:1.85, hd:.3 },
+    { rect:true, x:C.x + 3.15, z:C.z + C.hd, hw:1.85, hd:.3 },
+  );
+
+  // Piso de madeira
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 12.6),
+    new THREE.MeshStandardMaterial({ color:0x8a6a45, roughness:.9 }));
+  floor.rotation.x = -Math.PI/2; floor.position.set(C.x, .04, C.z);
+  floor.receiveShadow = true; scene.add(floor);
+
+  // Telhado de duas águas (some quando você entra)
+  igrejaRoof = new THREE.Group();
+  const roofMat = new THREE.MeshStandardMaterial({ color:0x8a3b2a, roughness:.9 });
+  const slab1 = new THREE.Mesh(new THREE.BoxGeometry(6.2, .25, 13.8), roofMat);
+  slab1.rotation.z = .55; slab1.position.set(C.x - 2.4, wallH + 1.4, C.z); slab1.castShadow = true;
+  const slab2 = new THREE.Mesh(new THREE.BoxGeometry(6.2, .25, 13.8), roofMat);
+  slab2.rotation.z = -.55; slab2.position.set(C.x + 2.4, wallH + 1.4, C.z); slab2.castShadow = true;
+  igrejaRoof.add(slab1, slab2);
+  // cruz no topo da frente
+  const crossMat = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:.6 });
+  const cv = new THREE.Mesh(new THREE.BoxGeometry(.12, 1.2, .12), crossMat);
+  cv.position.set(C.x, wallH + 3.4, C.z + C.hd - .2);
+  const ch = new THREE.Mesh(new THREE.BoxGeometry(.7, .12, .12), crossMat);
+  ch.position.set(C.x, wallH + 3.6, C.z + C.hd - .2);
+  igrejaRoof.add(cv, ch);
+  scene.add(igrejaRoof);
+
+  // Vitrais
+  const vitralMat = new THREE.MeshStandardMaterial({ color:0x5b7fd4, emissive:0x2a4a9c, emissiveIntensity:.5, roughness:.3 });
+  [-3, 0, 3].forEach(off => {
+    [-1, 1].forEach(side => {
+      const v = new THREE.Mesh(new THREE.PlaneGeometry(.9, 1.6), vitralMat);
+      v.position.set(C.x + side * (C.hw + .26), 2.4, C.z + off);
+      v.rotation.y = side > 0 ? -Math.PI/2 : Math.PI/2;
+      scene.add(v);
+    });
+  });
+
+  // Bancos (pews) e altar
+  for (let i = 0; i < 3; i++) {
+    [-1, 1].forEach(side => {
+      const pew = box(2.6, .9, .5, 0x5e4427);
+      pew.position.set(C.x + side * 2, .45, C.z + 1.5 + i * 2);
+      obstacles.push({ x:pew.position.x, z:pew.position.z, r:1.2 });
+      scene.add(pew);
+    });
+  }
+  const altar = box(3, 1.1, 1, 0xd9cfb4);
+  altar.position.set(C.x, .55, C.z - 5);
+  obstacles.push({ rect:true, x:C.x, z:C.z - 5, hw:1.5, hd:.5 });
+  scene.add(altar);
+  const velas = box(.5, .35, .2, 0xffe9a8, { emissive:0xffc94d, emissiveIntensity:1.2 });
+  velas.position.set(C.x, 1.3, C.z - 5);
+  scene.add(velas);
+}
+buildIgreja();
+
+// ---------- Skins ----------
+function flagUSATex() {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 192;
+  const x = c.getContext('2d');
+  const sh = 192/13;
+  for (let i = 0; i < 13; i++) {
+    x.fillStyle = i % 2 ? '#ffffff' : '#b22234';
+    x.fillRect(0, i*sh, 128, sh + 1);
+  }
+  x.fillStyle = '#3c3b6e'; x.fillRect(0, 0, 64, sh*7);
+  x.fillStyle = '#ffffff';
+  for (let r = 0; r < 5; r++) for (let cc = 0; cc < 4; cc++) {
+    x.beginPath();
+    x.arc(9 + cc*15 + (r % 2 ? 7 : 0), 10 + r*18, 2.8, 0, Math.PI*2);
+    x.fill();
+  }
+  return new THREE.CanvasTexture(c);
+}
+function flagBRTex() {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 192;
+  const x = c.getContext('2d');
+  x.fillStyle = '#009c3b'; x.fillRect(0, 0, 128, 192);
+  x.fillStyle = '#ffdf00';
+  x.beginPath(); x.moveTo(64, 18); x.lineTo(116, 96); x.lineTo(64, 174); x.lineTo(12, 96);
+  x.closePath(); x.fill();
+  x.fillStyle = '#002776';
+  x.beginPath(); x.arc(64, 96, 28, 0, Math.PI*2); x.fill();
+  x.fillStyle = '#ffffff'; x.fillRect(40, 91, 48, 7);
+  return new THREE.CanvasTexture(c);
+}
+const texUSA = flagUSATex(), texBR = flagBRTex();
+
+const SKINS = {
+  cacador:  { nome:'CAÇADOR',  armor:0x14101f, armorLight:0x241b38, glow:0xb26bff, glowE:0x9b5cf6, cape:{ color:0x0d0a16 } },
+  patriota: { nome:'PATRIOTA', armor:0x1a2440, armorLight:0x26365c, glow:0xffd166, glowE:0xe6a817, cape:{ flag:'usa' } },
+  brasil:   { nome:'BRASIL',   armor:0x123524, armorLight:0x1c4d33, glow:0xffdf00, glowE:0xd4b800, cape:{ flag:'br' } },
+  neon:     { nome:'NEON',     armor:0x0a1420, armorLight:0x122438, glow:0x00e5ff, glowE:0x00b8d4, cape:{ color:0x07111c } },
+};
+let currentSkin = SKINS.cacador;
+
 // ---------- Jogador: INFINITY × HUNTER ----------
 const player = new THREE.Group();
 let rightArm, leftArm, rightLeg, leftLeg, sword, swordGlow, hammer, aura, playerGlow;
+let matArmor, matArmorLight, matBoot, capeMesh;
 
 function buildPlayer() {
-  const armor = 0x14101f, armorLight = 0x241b38, boot = 0x0b0813;
+  matArmor = new THREE.MeshStandardMaterial({ color:0x14101f, roughness:.85 });
+  matArmorLight = new THREE.MeshStandardMaterial({ color:0x241b38, roughness:.85 });
+  matBoot = new THREE.MeshStandardMaterial({ color:0x0b0813, roughness:.85 });
   playerGlow = new THREE.MeshStandardMaterial({ color:0xb26bff, emissive:0x9b5cf6, emissiveIntensity:1.5, roughness:.2 });
+  const mk = (w,h,d,m) => { const ms = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m); ms.castShadow = true; return ms; };
 
   // Pernas
-  leftLeg = box(.28, .8, .3, armor);  leftLeg.geometry.translate(0,-.4,0); leftLeg.position.set(-.18, 1.05, 0);
-  rightLeg = box(.28, .8, .3, armor); rightLeg.geometry.translate(0,-.4,0); rightLeg.position.set(.18, 1.05, 0);
-  const shoeL = box(.3, .18, .45, boot); shoeL.position.set(0, -.85, .07); leftLeg.add(shoeL);
-  const shoeR = box(.3, .18, .45, boot); shoeR.position.set(0, -.85, .07); rightLeg.add(shoeR);
+  leftLeg = mk(.28, .8, .3, matArmor);  leftLeg.geometry.translate(0,-.4,0); leftLeg.position.set(-.18, 1.05, 0);
+  rightLeg = mk(.28, .8, .3, matArmor); rightLeg.geometry.translate(0,-.4,0); rightLeg.position.set(.18, 1.05, 0);
+  const shoeL = mk(.3, .18, .45, matBoot); shoeL.position.set(0, -.85, .07); leftLeg.add(shoeL);
+  const shoeR = mk(.3, .18, .45, matBoot); shoeR.position.set(0, -.85, .07); rightLeg.add(shoeR);
   player.add(leftLeg, rightLeg);
 
   // Torso blindado + marca X
-  const torso = box(.85, .95, .45, armorLight);
+  const torso = mk(.85, .95, .45, matArmorLight);
   torso.position.y = 1.55;
   const xBar1 = new THREE.Mesh(new THREE.BoxGeometry(.55, .09, .02), playerGlow);
   xBar1.rotation.z = Math.PI/4; xBar1.position.set(0, .08, .235); torso.add(xBar1);
   const xBar2 = xBar1.clone(); xBar2.rotation.z = -Math.PI/4; torso.add(xBar2);
-  const belt = box(.87, .12, .47, 0x35284f); belt.position.y = -.45; torso.add(belt);
+  const belt = mk(.87, .12, .47, new THREE.MeshStandardMaterial({ color:0x35284f, roughness:.85 }));
+  belt.position.y = -.45; torso.add(belt);
   player.add(torso);
 
-  // Capa
-  const cape = box(.8, 1.35, .06, 0x0d0a16);
-  cape.position.set(0, 1.45, -.3); cape.rotation.x = .12;
-  player.add(cape);
+  // Capa (recebe cor ou bandeira da skin)
+  capeMesh = mk(.85, 1.4, .06, new THREE.MeshStandardMaterial({ color:0x0d0a16, roughness:.9 }));
+  capeMesh.position.set(0, 1.45, -.3); capeMesh.rotation.x = .12;
+  player.add(capeMesh);
 
   // Cabeça encapuzada + visor X
-  const head = box(.55, .55, .55, armor);
+  const head = mk(.55, .55, .55, matArmor);
   head.position.y = 2.35;
   const hood = new THREE.Mesh(new THREE.ConeGeometry(.48, .55, 4),
     new THREE.MeshStandardMaterial({ color:0x0d0a16, roughness:.9 }));
@@ -533,22 +703,22 @@ function buildPlayer() {
   player.add(head);
 
   // Braço esquerdo
-  leftArm = box(.22, .75, .25, armorLight);
+  leftArm = mk(.22, .75, .25, matArmorLight);
   leftArm.geometry.translate(0, -.32, 0);
   leftArm.position.set(-.55, 1.95, 0);
-  const handL = box(.2, .2, .2, boot); handL.position.y = -.72; leftArm.add(handL);
+  const handL = mk(.2, .2, .2, matBoot); handL.position.y = -.72; leftArm.add(handL);
   player.add(leftArm);
 
   // Braço direito + armas
-  rightArm = box(.22, .75, .25, armorLight);
+  rightArm = mk(.22, .75, .25, matArmorLight);
   rightArm.geometry.translate(0, -.32, 0);
   rightArm.position.set(.55, 1.95, 0);
-  const handR = box(.2, .2, .2, boot); handR.position.y = -.72; rightArm.add(handR);
+  const handR = mk(.2, .2, .2, matBoot); handR.position.y = -.72; rightArm.add(handR);
 
   // Lâmina do Infinito
   sword = new THREE.Group();
-  const grip = box(.08, .3, .08, 0x0b0813);
-  const guard = box(.34, .06, .1, 0x4a3a6b, { metalness:.6, roughness:.3 });
+  const grip = mk(.08, .3, .08, matBoot);
+  const guard = mk(.34, .06, .1, new THREE.MeshStandardMaterial({ color:0x4a3a6b, metalness:.6, roughness:.3 }));
   guard.position.y = .18;
   swordGlow = new THREE.Mesh(new THREE.BoxGeometry(.1, 1.5, .03), playerGlow);
   swordGlow.position.y = .95;
@@ -584,6 +754,28 @@ function buildPlayer() {
 }
 buildPlayer();
 
+function setSkin(id) {
+  currentSkin = SKINS[id];
+  matArmor.color.setHex(currentSkin.armor);
+  matArmorLight.color.setHex(currentSkin.armorLight);
+  if (state.power <= 0) {                 // não sobrescreve a cor de um poder ativo
+    playerGlow.color.setHex(currentSkin.glow);
+    playerGlow.emissive.setHex(currentSkin.glowE);
+  }
+  if (currentSkin.cape.flag) {
+    capeMesh.material.map = currentSkin.cape.flag === 'usa' ? texUSA : texBR;
+    capeMesh.material.color.setHex(0xffffff);
+  } else {
+    capeMesh.material.map = null;
+    capeMesh.material.color.setHex(currentSkin.cape.color);
+  }
+  capeMesh.material.needsUpdate = true;
+  document.querySelectorAll('.skin-btn').forEach(b =>
+    b.classList.toggle('sel', b.dataset.skin === id));
+}
+document.querySelectorAll('.skin-btn').forEach(b =>
+  b.addEventListener('click', () => setSkin(b.dataset.skin)));
+
 // ---------- Posição de spawn perto (mas não em cima) do jogador ----------
 function spawnPosNearPlayer(minR, maxR) {
   const a = Math.random() * Math.PI*2;
@@ -594,11 +786,27 @@ function spawnPosNearPlayer(minR, maxR) {
   return p;
 }
 
-// ---------- Esqueletos ----------
-function spawnSkeleton(speed, elite=false) {
+// ---------- Monstros ----------
+const MONSTROS = {
+  esqueleto: { hp:3,  dmg:1, vel:1,    kills:1, bar:1 },
+  mumia:     { hp:6,  dmg:1, vel:.65,  kills:2, bar:1 },
+  fantasma:  { hp:1,  dmg:1, vel:1.55, kills:1, bar:.8 },
+  zumbi:     { hp:4,  dmg:1, vel:.85,  kills:2, bar:1 },
+  gigante:   { hp:12, dmg:2, vel:.62,  kills:3, bar:1 },
+};
+
+function makeHealthBar(g, w) {
+  const barBg = new THREE.Sprite(new THREE.SpriteMaterial({ color:0x111111 }));
+  barBg.scale.set(w, .12, 1); barBg.position.y = 2.95; g.add(barBg);
+  const barFg = new THREE.Sprite(new THREE.SpriteMaterial({ color:0x44dd66 }));
+  barFg.scale.set(w*.92, .07, 1); barFg.position.y = 2.95; g.add(barFg);
+  return barFg;
+}
+
+function buildEsqueleto(elite) {
   const g = new THREE.Group();
-  const boneMat = new THREE.MeshStandardMaterial({ color: elite ? 0xcfc0a8 : 0xe8e0d0, roughness:.9 });
-  const mk = (w,h,d) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), boneMat); m.castShadow = true; return m; };
+  const mat = new THREE.MeshStandardMaterial({ color: elite ? 0xcfc0a8 : 0xe8e0d0, roughness:.9 });
+  const mk = (w,h,d) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat); m.castShadow = true; return m; };
 
   const ll = mk(.18,.75,.18); ll.geometry.translate(0,-.37,0); ll.position.set(-.15, 1, 0);
   const rl = mk(.18,.75,.18); rl.geometry.translate(0,-.37,0); rl.position.set(.15, 1, 0);
@@ -625,21 +833,115 @@ function spawnSkeleton(speed, elite=false) {
     arm.rotation.x = -Math.PI/2.4;
     g.add(arm);
   });
+  return { g, mat };
+}
 
-  // Barra de vida flutuante
-  const barBg = new THREE.Sprite(new THREE.SpriteMaterial({ color:0x111111 }));
-  barBg.scale.set(1, .12, 1); barBg.position.y = 2.95; g.add(barBg);
-  const barFg = new THREE.Sprite(new THREE.SpriteMaterial({ color:0x44dd66 }));
-  barFg.scale.set(.92, .07, 1); barFg.position.y = 2.95; g.add(barFg);
+function buildMumia() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color:0xd8c9a3, roughness:1 });
+  const wrap = new THREE.MeshStandardMaterial({ color:0xb0a078, roughness:1 });
+  const mk = (w,h,d,m2) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m2 || mat); m.castShadow = true; return m; };
 
-  if (elite) g.scale.setScalar(1.85);
-  g.position.copy(spawnPosNearPlayer(16, 24));
+  const ll = mk(.24,.78,.24); ll.geometry.translate(0,-.39,0); ll.position.set(-.16, 1, 0);
+  const rl = mk(.24,.78,.24); rl.geometry.translate(0,-.39,0); rl.position.set(.16, 1, 0);
+  g.add(ll, rl);
 
-  const maxHp = elite ? 12 : 3;
-  const e = { mesh:g, mat:boneMat, barFg, hp:maxHp, maxHp, elite,
-    dmg: elite ? 2 : 1,
-    speed: elite ? speed * .62 : speed,
-    atkCd:rand(.3,1), dying:0, bobSeed:Math.random()*10 };
+  const torso = mk(.8, .95, .45); torso.position.y = 1.5; g.add(torso);
+  for (let i = 0; i < 4; i++) {                                   // faixas
+    const strip = mk(.84, .07, .49, wrap);
+    strip.position.y = 1.15 + i*.25;
+    strip.rotation.z = (i % 2 ? .07 : -.07);
+    g.add(strip);
+  }
+
+  const head = mk(.5, .52, .48); head.position.y = 2.25;
+  const headStrip = mk(.54, .08, .52, wrap); headStrip.position.y = .12; head.add(headStrip);
+  const eyeMat = new THREE.MeshBasicMaterial({ color:0x7cfc00 });
+  [-.11, .11].forEach(x => {
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(.09, .07, .02), eyeMat);
+    eye.position.set(x, -.02, .25); head.add(eye);
+  });
+  g.add(head);
+
+  [-.46, .46].forEach(x => {
+    const arm = mk(.18, .7, .18);
+    arm.geometry.translate(0, -.3, 0);
+    arm.position.set(x, 1.8, 0);
+    arm.rotation.x = -Math.PI/2.2;
+    g.add(arm);
+  });
+  return { g, mat };
+}
+
+function buildFantasma() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color:0xe8f4ff, roughness:.6,
+    transparent:true, opacity:.6, emissive:0x9fd4ff, emissiveIntensity:.35 });
+  const body = new THREE.Mesh(new THREE.ConeGeometry(.55, 1.6, 10), mat);
+  body.position.y = 1.1; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.42, 12, 10), mat);
+  head.position.y = 2.0; g.add(head);
+  const eyeMat = new THREE.MeshBasicMaterial({ color:0x113366 });
+  [-.14, .14].forEach(x => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(.07, 8, 8), eyeMat);
+    eye.position.set(x, 2.05, .36); g.add(eye);
+  });
+  return { g, mat };
+}
+
+function buildZumbi() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color:0x6a9a5b, roughness:1 });        // pele verde
+  const cloth = new THREE.MeshStandardMaterial({ color:0x3a3340, roughness:1 });      // roupa rasgada
+  const mk = (w,h,d,m2) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m2 || mat); m.castShadow = true; return m; };
+
+  const ll = mk(.24,.78,.26, cloth); ll.geometry.translate(0,-.39,0); ll.position.set(-.16, 1, 0);
+  const rl = mk(.24,.78,.26, cloth); rl.geometry.translate(0,-.39,0); rl.position.set(.16, 1, 0);
+  g.add(ll, rl);
+
+  const torso = mk(.82, .95, .45, cloth); torso.position.y = 1.5; g.add(torso);
+  const rasgo = mk(.4, .3, .47); rasgo.position.set(.15, 1.35, 0); g.add(rasgo);      // pele aparecendo
+
+  const head = mk(.52, .52, .5); head.position.y = 2.25;
+  const eyeMat = new THREE.MeshBasicMaterial({ color:0x991111 });
+  [-.12, .12].forEach(x => {
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(.1, .08, .02), eyeMat);
+    eye.position.set(x, .03, .26); head.add(eye);
+  });
+  const boca = mk(.26, .07, .02, new THREE.MeshBasicMaterial({ color:0x331111 }));
+  boca.position.set(0, -.16, .26); head.add(boca);
+  g.add(head);
+
+  [-.47, .47].forEach(x => {
+    const arm = mk(.18, .72, .18);
+    arm.geometry.translate(0, -.3, 0);
+    arm.position.set(x, 1.82, 0);
+    arm.rotation.x = -Math.PI/2.1;
+    g.add(arm);
+  });
+  return { g, mat };
+}
+
+function spawnMonster(speed, kind, pos) {
+  const conf = MONSTROS[kind];
+  let built;
+  if (kind === 'mumia') built = buildMumia();
+  else if (kind === 'fantasma') built = buildFantasma();
+  else if (kind === 'zumbi') built = buildZumbi();
+  else built = buildEsqueleto(kind === 'gigante');
+  const { g, mat } = built;
+  const barFg = makeHealthBar(g, conf.bar);
+  if (kind === 'gigante') g.scale.setScalar(1.85);
+  g.position.copy(pos || spawnPosNearPlayer(16, 24));
+
+  const e = { mesh:g, mat, barFg, kind,
+    baseColor: mat.color.getHex(),
+    hp:conf.hp, maxHp:conf.hp,
+    elite: kind === 'gigante',
+    ghost: kind === 'fantasma',
+    dmg: conf.dmg, killsVal: conf.kills,
+    speed: speed * conf.vel,
+    atkCd: rand(.3, 1), dying:0, bobSeed:Math.random()*10 };
   enemies.push(e);
   scene.add(g);
 }
@@ -650,10 +952,20 @@ function startWave() {
   const speed = Math.min(1.8 + state.wave * .18, 3.8);
   const elites = state.wave >= 3 ? Math.min(1 + Math.floor((state.wave - 3) / 2), 3) : 0;
   for (let i = 0; i < count; i++) setTimeout(() => {
-    if (state.playing) spawnSkeleton(speed);
+    if (!state.playing) return;
+    const r = Math.random();
+    let kind = 'esqueleto', pos = null;
+    if (state.wave >= 4 && r < .18) kind = 'fantasma';
+    else if (state.wave >= 2 && r < .38) {
+      kind = 'zumbi';                                       // zumbis saem da igreja
+      pos = IGREJA_DOOR.clone();
+      pos.x += rand(-1, 1); pos.z += rand(0, 1.5);
+    }
+    else if (state.wave >= 2 && r < .58) kind = 'mumia';
+    spawnMonster(speed, kind, pos);
   }, i * 420);
   for (let i = 0; i < elites; i++) setTimeout(() => {
-    if (state.playing) spawnSkeleton(speed, true);
+    if (state.playing) spawnMonster(speed, 'gigante');
   }, 1200 + i * 900);
   document.getElementById('waveLabel').textContent = 'ONDA ' + state.wave;
   showMsg(elites > 0 ? 'ONDA ' + state.wave + ' ⚠️ GIGANTE!' : 'ONDA ' + state.wave);
@@ -711,8 +1023,8 @@ function clearPower() {
   state.power = 0; state.powerType = null;
   aura.visible = false;
   hammer.visible = false; sword.visible = true;
-  playerGlow.color.setHex(0xb26bff);
-  playerGlow.emissive.setHex(0x9b5cf6);
+  playerGlow.color.setHex(currentSkin.glow);
+  playerGlow.emissive.setHex(currentSkin.glowE);
   document.getElementById('powerName').style.display = 'none';
   updatePowerHud();
 }
@@ -739,6 +1051,79 @@ function spawnHeart(pos) {
   heartDrops.push(g); scene.add(g);
 }
 
+// ---------- Aura (poder supremo) ----------
+let auraTimer = 4;
+let supremoAtivo = false;
+
+function spawnAura() {
+  const g = new THREE.Group();
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(.22, 12, 12),
+    new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xc9a6ff, emissiveIntensity:2.2, roughness:.2 }));
+  orb.position.y = .9; g.add(orb);
+  const halo = new THREE.Mesh(new THREE.RingGeometry(.34, .42, 22),
+    new THREE.MeshBasicMaterial({ color:0xd9c2ff, side:THREE.DoubleSide, transparent:true, opacity:.85 }));
+  halo.position.y = .9; g.add(halo);
+  g.position.copy(spawnPosNearPlayer(6, 24));
+  auras.push(g); scene.add(g);
+}
+
+function updateAuraHud() {
+  const el = document.getElementById('auraCount');
+  el.textContent = '⚡ AURA ' + state.aura + '/10';
+  el.style.color = state.aura >= 7 ? '#c9a6ff' : '#ffd166';
+}
+
+function bigMsgShow(text, delay) {
+  setTimeout(() => {
+    if (!state.playing) return;
+    const el = document.getElementById('bigMsg');
+    el.textContent = text;
+    el.style.transition = 'none';
+    el.style.opacity = 0;
+    el.style.transform = 'translate(-50%,-50%) scale(.8)';
+    requestAnimationFrame(() => {
+      el.style.transition = 'opacity .2s, transform .85s';
+      el.style.opacity = 1;
+      el.style.transform = 'translate(-50%,-50%) scale(1.08)';
+    });
+    setTimeout(() => { el.style.opacity = 0; }, 720);
+  }, delay);
+}
+
+function triggerSupremo() {
+  if (supremoAtivo) return;
+  supremoAtivo = true;
+  state.aura = 0;
+  updateAuraHud();
+  state.invuln = 3.4;                       // intocável durante a cerimônia
+  sfx('riser');
+  bigMsgShow('AURA', 0);
+  bigMsgShow('AURA + EGO', 900);
+  bigMsgShow('AURA SUPREMA', 1800);
+  setTimeout(() => {
+    supremoAtivo = false;
+    if (state.playing) novaSuprema();
+  }, 2650);
+}
+
+function novaSuprema() {
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.8, 1.7, 44),
+    new THREE.MeshBasicMaterial({ color:0xffffff, side:THREE.DoubleSide, transparent:true, opacity:.95 }));
+  ring.rotation.x = -Math.PI/2;
+  ring.position.copy(player.position); ring.position.y = .3;
+  scene.add(ring);
+  novas.push({ mesh:ring, t:0 });
+  addShake(1);
+  sfx('boom');
+  for (const e of enemies) {
+    if (e.dying > 0) continue;
+    const to = e.mesh.position.clone().sub(player.position); to.y = 0;
+    if (to.length() > 17) continue;
+    hurtEnemy(e, 10, to.normalize(), 6);
+  }
+  showMsg('💥 PODER MÁXIMO!');
+}
+
 // ---------- HUD ----------
 function updateHearts() {
   document.getElementById('hearts').innerHTML =
@@ -746,7 +1131,7 @@ function updateHearts() {
       `<span class="${i < state.hp ? 'h-on' : 'h-off'}">♥</span>`).join('');
 }
 function updateKills() {
-  document.getElementById('kills').innerHTML = state.kills + ' <span>ESQUELETOS</span>';
+  document.getElementById('kills').innerHTML = state.kills + ' <span>MONSTROS</span>';
 }
 let msgTimer;
 function showMsg(t) {
@@ -900,6 +1285,24 @@ function sfx(type) {
     gn.gain.setValueAtTime(.22, t); gn.gain.exponentialRampToValueAtTime(.001, t + .35);
     o.start(t); o.stop(t + .36);
     playNoise(.32, 300, .25);                      // tremor de terra
+  } else if (type === 'riser') {
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(70, t);
+    o.frequency.exponentialRampToValueAtTime(1500, t + 2.5);
+    gn.gain.setValueAtTime(.06, t);
+    gn.gain.linearRampToValueAtTime(.14, t + 2.3);
+    gn.gain.exponentialRampToValueAtTime(.001, t + 2.6);
+    o.start(t); o.stop(t + 2.62);
+  } else if (type === 'boom') {
+    o.type = 'sine'; o.frequency.setValueAtTime(70, t);
+    o.frequency.exponentialRampToValueAtTime(24, t + .5);
+    gn.gain.setValueAtTime(.35, t); gn.gain.exponentialRampToValueAtTime(.001, t + .6);
+    o.start(t); o.stop(t + .62);
+    playNoise(.55, 500, .3);
+  } else if (type === 'aura') {
+    o.type = 'sine'; o.frequency.setValueAtTime(880, t);
+    o.frequency.setValueAtTime(1320, t + .07);
+    gn.gain.setValueAtTime(.1, t); gn.gain.exponentialRampToValueAtTime(.001, t + .25);
+    o.start(t); o.stop(t + .26);
   }
 }
 
@@ -920,10 +1323,10 @@ function hurtEnemy(e, dmg, dir, kb) {
   e.mesh.position.add(dir.clone().multiplyScalar(e.elite ? kb * .35 : kb));
   clampToArena(e.mesh.position);
   e.mat.color.setHex(0xff5544);
-  setTimeout(() => e.mat.color.setHex(e.elite ? 0xcfc0a8 : 0xe8e0d0), 110);
+  setTimeout(() => e.mat.color.setHex(e.baseColor), 110);
   if (e.hp <= 0) {
     e.dying = .6;
-    state.kills += e.elite ? 3 : 1;
+    state.kills += e.killsVal;
     updateKills();
     sfx('death');
     if (e.elite) {
@@ -996,7 +1399,7 @@ function endGame() {
   state.gameOver = true;
   stopMusic();
   document.getElementById('finalStats').innerHTML =
-    `Esqueletos derrotados: <b>${state.kills}</b><br>Chegou até a onda: <b>${state.wave}</b>`;
+    `Monstros derrotados: <b>${state.kills}</b><br>Chegou até a onda: <b>${state.wave}</b>`;
   document.getElementById('gameover').style.display = 'flex';
   document.getElementById('hud').style.display = 'none';
   document.getElementById('joyBase').style.display = 'none';
@@ -1090,10 +1493,15 @@ function startGame() {
   acais.forEach(a => scene.remove(a)); acais = [];
   heartDrops.forEach(h => scene.remove(h)); heartDrops = [];
   beams.forEach(b => scene.remove(b)); beams = [];
+  auras.forEach(a => scene.remove(a)); auras = [];
+  novas.forEach(n => scene.remove(n.mesh)); novas = [];
   acaiTimer = 5;
+  auraTimer = 4;
+  supremoAtivo = false;
+  document.getElementById('bigMsg').style.opacity = 0;
   vy = 0; grounded = true;
   Object.assign(state, { playing:true, gameOver:false, hp:MAX_HP, kills:0, wave:0,
-    invuln:0, attackT:0, attackCd:0, power:0, powerType:null });
+    invuln:0, attackT:0, attackCd:0, power:0, powerType:null, aura:0 });
   clearPower();
   player.position.set(0, 0, 10);
   player.visible = true;
@@ -1106,7 +1514,7 @@ function startGame() {
     document.getElementById('atkBtn').style.display = 'block';
     document.getElementById('jmpBtn').style.display = 'block';
   }
-  updateHearts(); updateKills(); updatePowerHud();
+  updateHearts(); updateKills(); updatePowerHud(); updateAuraHud();
   startWave();
 }
 document.getElementById('startBtn').addEventListener('click', startGame);
@@ -1134,6 +1542,25 @@ function clampToArena(pos) {
   const fr = Math.hypot(pos.x, pos.z);
   if (fr < FOUNTAIN_R && fr > 0.001) {
     pos.x *= FOUNTAIN_R/fr; pos.z *= FOUNTAIN_R/fr;
+  }
+  // colisão com objetos (árvores, postes, bancos, banca, paredes da igreja)
+  for (const o of obstacles) {
+    if (o.rect) {
+      const dx = pos.x - o.x, dz = pos.z - o.z;
+      if (Math.abs(dx) < o.hw + .35 && Math.abs(dz) < o.hd + .35) {
+        const px = o.hw + .35 - Math.abs(dx);
+        const pz = o.hd + .35 - Math.abs(dz);
+        if (px < pz) pos.x = o.x + Math.sign(dx || 1) * (o.hw + .35);
+        else pos.z = o.z + Math.sign(dz || 1) * (o.hd + .35);
+      }
+    } else {
+      const dx = pos.x - o.x, dz = pos.z - o.z;
+      const d = Math.hypot(dx, dz);
+      if (d < o.r && d > 0.001) {
+        pos.x = o.x + dx / d * o.r;
+        pos.z = o.z + dz / d * o.r;
+      }
+    }
   }
 }
 
@@ -1241,7 +1668,9 @@ function animate() {
         clampToArena(e.mesh.position);
       }
       e.mesh.lookAt(player.position.x, 0, player.position.z);
-      e.mesh.position.y = Math.abs(Math.sin(t*8 + e.bobSeed)) * (e.elite ? .06 : .12);
+      e.mesh.position.y = e.ghost
+        ? .35 + Math.sin(t*4 + e.bobSeed) * .2
+        : Math.abs(Math.sin(t*8 + e.bobSeed)) * (e.elite ? .06 : .12);
       e.atkCd -= dt;
       if (dist < (e.elite ? 2.6 : 1.5) && e.atkCd <= 0 && player.position.y < .9) {
         e.atkCd = e.elite ? 1.6 : 1.2;
@@ -1292,6 +1721,39 @@ function animate() {
         scene.remove(h); heartDrops.splice(i, 1);
       }
     }
+
+    // --- Auras (poder supremo) ---
+    auraTimer -= dt;
+    if (auraTimer <= 0 && auras.length < 4) { spawnAura(); auraTimer = 5; }
+    for (let i = auras.length - 1; i >= 0; i--) {
+      const au = auras[i];
+      au.rotation.y += dt * 3;
+      au.children[0].position.y = .9 + Math.sin(t*4 + i) * .12;
+      au.children[1].position.y = au.children[0].position.y;
+      if (au.position.distanceTo(player.position) < 1.25) {
+        scene.remove(au); auras.splice(i, 1);
+        state.aura++;
+        updateAuraHud();
+        sfx('aura');
+        if (state.aura >= 10) triggerSupremo();
+      }
+    }
+
+    // --- Anéis da nova suprema ---
+    for (let i = novas.length - 1; i >= 0; i--) {
+      const n = novas[i];
+      n.t += dt;
+      const s = 1 + n.t * 28;
+      n.mesh.scale.set(s, s, 1);
+      n.mesh.material.opacity = Math.max(0, .95 * (1 - n.t / .7));
+      if (n.t > .7) { scene.remove(n.mesh); novas.splice(i, 1); }
+    }
+
+    // --- Telhado da igreja (some quando você entra) ---
+    igrejaRoof.visible = !(
+      Math.abs(player.position.x - IGREJA.x) < IGREJA.hw + 1 &&
+      Math.abs(player.position.z - IGREJA.z) < IGREJA.hd + 1
+    );
 
     // --- Próxima onda ---
     if (alive === 0 && enemies.length === 0 && state.wave > 0 && !state._waveQueued) {
