@@ -67,11 +67,11 @@
     color:#fff; font-size:28px; display:none; z-index:12;
     box-shadow:0 0 20px rgba(87,196,173,.35); }
   #jmpBtn:active { background:rgba(87,196,173,.5); transform:scale(.93); }
-  #sndBtn { position:fixed; top:max(12px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
-    width:40px; height:40px; border-radius:50%; border:1px solid rgba(178,107,255,.4);
+  #sndBtn { position:fixed; right:16px; top:calc(max(12px, env(safe-area-inset-top)) + 206px);
+    width:38px; height:38px; border-radius:50%; border:1px solid rgba(178,107,255,.4);
     background:rgba(8,12,24,.55); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-    color:#fff; font-size:18px; display:none; z-index:13; }
-  #sndBtn:active { transform:translateX(-50%) scale(.92); }
+    color:#fff; font-size:17px; display:none; z-index:13; }
+  #sndBtn:active { transform:scale(.92); }
 
   /* ---------- Telas ---------- */
   .screen { position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
@@ -132,13 +132,14 @@
   <div class="hud-card" id="stats">
     <div id="waveLabel">ONDA 1</div>
     <div id="kills">0 <span>MONSTROS</span></div>
+    <div id="aliveLabel" style="font-size:11px; font-weight:700; color:#ff8a8a; margin-top:2px;"></div>
   </div>
 </div>
 
 <div id="bigMsg"></div>
 
 <div id="msg"></div>
-<div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 4px); left:50%; transform:translateX(-50%); z-index:11; display:none; padding:8px 18px; border-radius:30px; background:rgba(8,12,24,.72); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border:1px solid rgba(255,209,102,.5); white-space:nowrap; pointer-events:none; font-size:13px; font-weight:700; color:#ffd166; letter-spacing:.5px;"></div>
+<div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 78px); left:16px; z-index:11; display:none; padding:5px 11px; border-radius:20px; background:rgba(8,12,24,.7); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,209,102,.45); white-space:nowrap; pointer-events:none; font-size:12px; font-weight:700; color:#ffd166; letter-spacing:.3px;"></div>
 <div id="dmg"></div>
 <canvas id="minimap" width="220" height="220"></canvas>
 
@@ -146,6 +147,7 @@
 <button id="atkBtn">⚔️</button>
 <button id="jmpBtn">↑</button>
 <button id="sndBtn">🔊</button>
+<audio id="bandMusic" src="infinity.mp3" loop preload="auto"></audio>
 
 <div class="screen" id="startScreen">
   <div class="sword-emoji">⚔️</div>
@@ -159,7 +161,7 @@
     <button class="skin-btn sel" data-skin="cacador"><span class="dot" style="background:#b26bff"></span>CAÇADOR</button>
     <button class="skin-btn" data-skin="patriota"><span class="dot" style="background:linear-gradient(180deg,#b22234 33%,#fff 33%,#fff 66%,#3c3b6e 66%)"></span>PATRIOTA</button>
     <button class="skin-btn" data-skin="brasil"><span class="dot" style="background:linear-gradient(180deg,#009c3b 50%,#ffdf00 50%)"></span>BRASIL</button>
-    <button class="skin-btn" data-skin="neon"><span class="dot" style="background:#00e5ff"></span>NEON</button>
+    <button class="skin-btn" data-skin="unicornio"><span class="dot" style="background:linear-gradient(90deg,#ff4fc3,#ffd166,#4ade80,#22d3ee,#a78bfa)"></span>🦄 UNICÓRNIO</button>
   </div>
   <div class="nick-label">SEU NICK</div>
   <input id="nickInput" maxlength="20" spellcheck="false" autocomplete="off">
@@ -186,7 +188,7 @@
 // ---------- Constantes ----------
 const ARENA = 62;            // raio jogável
 const FOUNTAIN_R = 3.2;      // colisão da fonte central
-const MAX_HP = 5;
+const MAX_HP = 7;
 const POWER_TIME = 10;       // duração do poder do açaí (s)
 const PLAYER_SPEED = 7;
 
@@ -210,7 +212,7 @@ const state = {
 const keys = {};
 const joy = { active:false, id:null, dx:0, dy:0 };
 const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-let enemies = [], acais = [], heartDrops = [], beams = [], clouds = [], auras = [], novas = [], bombs = [], explosions = [];
+let enemies = [], acais = [], heartDrops = [], beams = [], clouds = [], auras = [], novas = [], bombs = [], explosions = [], rainbowShots = [];
 
 // ---------- Cena ----------
 const scene = new THREE.Scene();
@@ -228,19 +230,89 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// cor viva e vibrante (protegido contra versões antigas do Three.js)
+try {
+  // ACES deixa opaco; usamos exposição alta sem tone mapping agressivo para cores vivas
+  if (THREE.NoToneMapping !== undefined) renderer.toneMapping = THREE.NoToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  if (THREE.SRGBColorSpace !== undefined && 'outputColorSpace' in renderer) {
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+  } else if (THREE.sRGBEncoding !== undefined && 'outputEncoding' in renderer) {
+    renderer.outputEncoding = THREE.sRGBEncoding;
+  }
+} catch (e) {}
 document.body.appendChild(renderer.domElement);
 
-// Luz: fim de tarde tropical
-const hemiLight = new THREE.HemisphereLight(0xbfe3ff, 0x6a7c4f, .75);
+// Luz: dia tropical colorido
+const hemiLight = new THREE.HemisphereLight(0xd8eeff, 0x82986a, 1.0);
 scene.add(hemiLight);
-const sun = new THREE.DirectionalLight(0xfff1c9, 1.25);
+const sun = new THREE.DirectionalLight(0xfff2d4, 1.55);
 sun.position.set(28, 42, 18);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.left = -35; sun.shadow.camera.right = 35;
 sun.shadow.camera.top = 35;   sun.shadow.camera.bottom = -35;
+sun.shadow.bias = -0.0004;
+sun.shadow.radius = 3;
 scene.add(sun);
 scene.add(sun.target);
+// luz de preenchimento quente (rim light) para dar volume
+const fillLight = new THREE.DirectionalLight(0xffdaa6, .4);
+fillLight.position.set(-20, 15, -25);
+scene.add(fillLight);
+
+// ---------- Céu com gradiente + estrelas ----------
+let skyMat = null, skyDome = null, starMat = null, stars = null, fireflyMat = null, fireflies = null;
+try {
+  const skyGeo = new THREE.SphereGeometry(220, 24, 16);
+  skyMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: {
+      topColor:    { value: new THREE.Color(0x4a90d9) },
+      bottomColor: { value: new THREE.Color(0xbfe3ff) },
+      offset:      { value: 30 },
+      exponent:    { value: .6 },
+    },
+    vertexShader: `varying vec3 vWorldPosition;
+      void main(){ vec4 wp = modelMatrix * vec4(position,1.0); vWorldPosition = wp.xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `uniform vec3 topColor; uniform vec3 bottomColor; uniform float offset; uniform float exponent;
+      varying vec3 vWorldPosition;
+      void main(){ float h = normalize(vWorldPosition + vec3(0.0,offset,0.0)).y;
+      gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h,0.0),exponent),0.0)), 1.0); }`,
+  });
+  skyDome = new THREE.Mesh(skyGeo, skyMat);
+  scene.add(skyDome);
+
+  // Estrelas (escondidas de dia)
+  const starGeo = new THREE.BufferGeometry();
+  const starN = 400, starPos = new Float32Array(starN * 3);
+  for (let i = 0; i < starN; i++) {
+    const a = Math.random() * Math.PI * 2, b = Math.random() * Math.PI * .5;
+    const r = 200;
+    starPos[i*3]   = Math.cos(a) * Math.sin(b + .15) * r;
+    starPos[i*3+1] = Math.cos(b) * r * .9 + 20;
+    starPos[i*3+2] = Math.sin(a) * Math.sin(b + .15) * r;
+  }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+  starMat = new THREE.PointsMaterial({ color:0xffffff, size:1.1, transparent:true, opacity:0, sizeAttenuation:false });
+  stars = new THREE.Points(starGeo, starMat);
+  scene.add(stars);
+
+  // Partículas mágicas flutuando (vaga-lumes/poeira de fada)
+  const fireflyGeo = new THREE.BufferGeometry();
+  const ffN = 120, ffPos = new Float32Array(ffN * 3);
+  for (let i = 0; i < ffN; i++) {
+    ffPos[i*3]   = rand(-55, 55);
+    ffPos[i*3+1] = rand(1, 8);
+    ffPos[i*3+2] = rand(-55, 55);
+  }
+  fireflyGeo.setAttribute('position', new THREE.BufferAttribute(ffPos, 3));
+  fireflyMat = new THREE.PointsMaterial({ color:0xfff0b0, size:3.5, transparent:true, opacity:.7,
+    sizeAttenuation:true, blending:THREE.AdditiveBlending, depthWrite:false });
+  fireflies = new THREE.Points(fireflyGeo, fireflyMat);
+  scene.add(fireflies);
+} catch (e) {}
 
 // ---------- Ciclo Dia / Noite ----------
 // Lua (escondida de dia)
@@ -257,16 +329,16 @@ moon.visible = false;
 scene.add(moon);
 
 const DIA = {
-  ceu:0x9ed3ff, fog:0x9ed3ff, sunInt:1.25, sunCor:0xfff1c9,
-  hemiCeu:0xbfe3ff, hemiChao:0x6a7c4f, hemiInt:.75, lamp:.9,
+  ceu:0x9ed3ff, fog:0xbce2f5, sunInt:1.55, sunCor:0xfff2d4,
+  hemiCeu:0xd8eeff, hemiChao:0x82986a, hemiInt:1.0, lamp:.95,
+  skyTop:0x2f86dc, skyBot:0xcdecff, stars:0,
 };
 const NOITE = {
-  ceu:0x101935, fog:0x141d3a, sunInt:.35, sunCor:0x8fa6e0,
-  hemiCeu:0x2a3a6b, hemiChao:0x1a2030, hemiInt:.4, lamp:2.4,
+  ceu:0x101935, fog:0x14224a, sunInt:.45, sunCor:0xa0b4ec,
+  hemiCeu:0x2e4076, hemiChao:0x1a2233, hemiInt:.55, lamp:2.8,
+  skyTop:0x060a20, skyBot:0x303560, stars:1,
 };
 let ehNoite = false;
-let luz = { ceu:0x9ed3ff, fog:0x9ed3ff, sunInt:1.25, sunCor:0xfff1c9,
-  hemiCeu:0xbfe3ff, hemiChao:0x6a7c4f, hemiInt:.75, lamp:.9 };
 let luzAlvo = Object.assign({}, DIA);
 let luzAtual = Object.assign({}, DIA);
 
@@ -286,14 +358,21 @@ function updateLuz(dt) {
   luzAtual.sunInt += (luzAlvo.sunInt - luzAtual.sunInt) * k;
   luzAtual.hemiInt += (luzAlvo.hemiInt - luzAtual.hemiInt) * k;
   luzAtual.lamp += (luzAlvo.lamp - luzAtual.lamp) * k;
-  luzAtual.ceu = lerpHex(luzAtual.ceu|0, luzAlvo.ceu, k);
   luzAtual.fog = lerpHex(luzAtual.fog|0, luzAlvo.fog, k);
   luzAtual.sunCor = lerpHex(luzAtual.sunCor|0, luzAlvo.sunCor, k);
   luzAtual.hemiCeu = lerpHex(luzAtual.hemiCeu|0, luzAlvo.hemiCeu, k);
   luzAtual.hemiChao = lerpHex(luzAtual.hemiChao|0, luzAlvo.hemiChao, k);
+  luzAtual.skyTop = lerpHex(luzAtual.skyTop|0, luzAlvo.skyTop, k);
+  luzAtual.skyBot = lerpHex(luzAtual.skyBot|0, luzAlvo.skyBot, k);
+  luzAtual.stars = (luzAtual.stars||0) + (luzAlvo.stars - (luzAtual.stars||0)) * k;
 
-  scene.background.setHex(luzAtual.ceu|0);
   scene.fog.color.setHex(luzAtual.fog|0);
+  if (skyMat) {
+    skyMat.uniforms.topColor.value.setHex(luzAtual.skyTop|0);
+    skyMat.uniforms.bottomColor.value.setHex(luzAtual.skyBot|0);
+  }
+  if (starMat) starMat.opacity = luzAtual.stars;
+  if (stars) stars.rotation.y += dt * .005;
   sun.intensity = luzAtual.sunInt;
   sun.color.setHex(luzAtual.sunCor|0);
   hemiLight.intensity = luzAtual.hemiInt;
@@ -368,9 +447,9 @@ function buildCity() {
 
   // GRAMA com manchas naturais
   const grassTex = makeTexture((x,w,h) => {
-    x.fillStyle = '#5e9c4a'; x.fillRect(0,0,w,h);
-    for (let i = 0; i < 500; i++) {
-      x.fillStyle = Math.random() < .5 ? 'rgba(40,80,30,.25)' : 'rgba(150,190,90,.22)';
+    x.fillStyle = '#4caf3f'; x.fillRect(0,0,w,h);
+    for (let i = 0; i < 600; i++) {
+      x.fillStyle = Math.random() < .5 ? 'rgba(30,110,35,.28)' : 'rgba(140,210,80,.28)';
       const s = rand(2, 9);
       x.fillRect(Math.random()*w, Math.random()*h, s, s);
     }
@@ -500,9 +579,9 @@ function buildCity() {
   // árvores espalhadas (evitando caminhos, quadra e fonte)
   const kinds = ['verde','verde','amarelo','rosa','verde','amarelo'];
   let placed = 0, tries = 0;
-  while (placed < 30 && tries < 500) {
+  while (placed < 45 && tries < 800) {
     tries++;
-    const a = Math.random()*Math.PI*2, r = rand(9, ARENA-3);
+    const a = Math.random()*Math.PI*2, r = rand(7, ARENA-3);
     const px = Math.cos(a)*r, pz = Math.sin(a)*r;
     if (Math.abs(px) < 3.5 || Math.abs(pz) < 3.5) continue;            // caminhos
     if (px > 10 && px < 24 && pz > -27 && pz < -7) continue;           // quadra
@@ -510,8 +589,58 @@ function buildCity() {
     if (Math.hypot(px - 32, pz - 16) < 9) continue;                    // feira
     if (Math.hypot(px + 30, pz - 26) < 10) continue;                   // parquinho
     if (Math.hypot(px - 10, pz + 42) < 13) continue;                   // lago
+    if (Math.hypot(px, pz) < 5) continue;                              // fonte
     tree(kinds[placed % kinds.length], px, pz);
     placed++;
+  }
+
+  // ARBUSTOS, PEDRAS e CANTEIROS DE FLORES preenchendo os vazios
+  function bush(px, pz) {
+    const b = new THREE.Group();
+    const cor = 0x3f8a35 + Math.floor(rand(-0x101000, 0x101000));
+    [[0,.35,0,.5],[.35,.3,.1,.38],[-.3,.32,-.1,.34]].forEach(([cx,cy,cz,rr]) => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(rr, 8, 7),
+        new THREE.MeshStandardMaterial({ color:0x4a9c3e, roughness:1 }));
+      m.position.set(cx, cy, cz); m.castShadow = true; b.add(m);
+    });
+    b.position.set(px, 0, pz); scene.add(b);
+    obstacles.push({ x:px, z:pz, r:.5 });
+  }
+  function rock(px, pz) {
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(rand(.35, .7)),
+      new THREE.MeshStandardMaterial({ color:0x8e8b80, roughness:.95 }));
+    r.position.set(px, .25, pz); r.scale.y = .7; r.rotation.y = rand(0, 6);
+    r.castShadow = true; scene.add(r);
+    obstacles.push({ x:px, z:pz, r:.55 });
+  }
+  function flores(px, pz) {
+    const canteiro = new THREE.Mesh(new THREE.CircleGeometry(1.1, 12),
+      new THREE.MeshStandardMaterial({ color:0x5a3d28, roughness:1 }));
+    canteiro.rotation.x = -Math.PI/2; canteiro.position.set(px, .03, pz); scene.add(canteiro);
+    const cores = [0xff5c8a, 0xffd166, 0xff8c42, 0xb26bff, 0xffffff];
+    for (let i = 0; i < 7; i++) {
+      const fa = (i/7)*Math.PI*2;
+      const flor = new THREE.Mesh(new THREE.SphereGeometry(.12, 6, 6),
+        new THREE.MeshStandardMaterial({ color:cores[i % cores.length], emissive:cores[i % cores.length], emissiveIntensity:.2, roughness:.6 }));
+      flor.position.set(px + Math.cos(fa)*.6, .25, pz + Math.sin(fa)*.6); scene.add(flor);
+    }
+  }
+  // distribui decorações cobrindo o mapa inteiro, inclusive o anel médio vazio
+  const decos = [bush, bush, rock, flores, bush, rock];
+  let dp = 0, dt2 = 0;
+  while (dp < 40 && dt2 < 700) {
+    dt2++;
+    const a = Math.random()*Math.PI*2, r = rand(6, ARENA-2);
+    const px = Math.cos(a)*r, pz = Math.sin(a)*r;
+    if (Math.abs(px) < 3 || Math.abs(pz) < 3) continue;
+    if (px > 10 && px < 24 && pz > -27 && pz < -7) continue;
+    if (px > -29 && px < -15 && pz > -25 && pz < -7) continue;
+    if (Math.hypot(px - 32, pz - 16) < 8) continue;
+    if (Math.hypot(px + 30, pz - 26) < 9) continue;
+    if (Math.hypot(px - 10, pz + 42) < 12) continue;
+    if (Math.hypot(px, pz) < 5) continue;
+    decos[dp % decos.length](px, pz);
+    dp++;
   }
 
   // POSTES de luz
@@ -644,19 +773,44 @@ function buildIgreja() {
   // Paredes (fundo, laterais, frente com vão da porta)
   mkWall(10, wallH, .5, C.x, C.z - C.hd);                          // fundo
   mkWall(.5, wallH, 13, C.x - C.hw, C.z);                          // esquerda
-  mkWall(.5, wallH, 13, C.x + C.hw, C.z);                          // direita
+  // direita com vão para a porta lateral (dois segmentos + verga)
+  mkWall(.5, wallH, 4.5, C.x + C.hw, C.z - 4.25);                  // direita-fundo
+  mkWall(.5, wallH, 4.5, C.x + C.hw, C.z + 4.25);                  // direita-frente
+  mkWall(.5, 1.2, 4, C.x + C.hw, C.z, wallH - .6);                 // verga sobre a porta lateral
   mkWall(3.7, wallH, .5, C.x - 3.15, C.z + C.hd);                  // frente esq
   mkWall(3.7, wallH, .5, C.x + 3.15, C.z + C.hd);                  // frente dir
-  mkWall(2.6, 1.2, .5, C.x, C.z + C.hd, wallH - .6);               // verga sobre a porta
+  mkWall(2.6, 1.2, .5, C.x, C.z + C.hd, wallH - .6);               // verga sobre a porta frontal
 
-  // Colisores das paredes
+  // Colisores das paredes (direita partida pela porta lateral)
   obstacles.push(
-    { rect:true, x:C.x,        z:C.z - C.hd, hw:5,    hd:.3 },
-    { rect:true, x:C.x - C.hw, z:C.z,        hw:.3,   hd:6.5 },
-    { rect:true, x:C.x + C.hw, z:C.z,        hw:.3,   hd:6.5 },
-    { rect:true, x:C.x - 3.15, z:C.z + C.hd, hw:1.85, hd:.3 },
-    { rect:true, x:C.x + 3.15, z:C.z + C.hd, hw:1.85, hd:.3 },
+    { rect:true, x:C.x,        z:C.z - C.hd,   hw:5,    hd:.3 },
+    { rect:true, x:C.x - C.hw, z:C.z,          hw:.3,   hd:6.5 },
+    { rect:true, x:C.x + C.hw, z:C.z - 4.25,   hw:.3,   hd:2.25 },
+    { rect:true, x:C.x + C.hw, z:C.z + 4.25,   hw:.3,   hd:2.25 },
+    { rect:true, x:C.x - 3.15, z:C.z + C.hd,   hw:1.85, hd:.3 },
+    { rect:true, x:C.x + 3.15, z:C.z + C.hd,   hw:1.85, hd:.3 },
   );
+
+  // Placa "IGREJA DO INFINITY" sobre a porta frontal
+  const placa = makeSign('IGREJA DO INFINITY', '#3a2a5e', '#ffd166');
+  placa.scale.set(1.15, 1.15, 1.15);
+  placa.position.set(C.x, wallH - .1, C.z + C.hd + .28);
+  scene.add(placa);
+  // batente da porta lateral (moldura)
+  const moldura = new THREE.Mesh(new THREE.BoxGeometry(.12, 3.6, 4.2),
+    new THREE.MeshStandardMaterial({ color:0x6e5230, roughness:.8 }));
+  moldura.position.set(C.x + C.hw, 1.8, C.z); scene.add(moldura);
+  // porta de madeira aberta na lateral (dobrada para fora)
+  const portaLat = new THREE.Mesh(new THREE.BoxGeometry(.1, 3, 1.9),
+    new THREE.MeshStandardMaterial({ color:0x5e4427, roughness:.85 }));
+  portaLat.position.set(C.x + C.hw + .9, 1.6, C.z - 1.4);
+  portaLat.rotation.y = -.7; portaLat.castShadow = true; scene.add(portaLat);
+  // placa "IGREJA DO INFINITY" também na lateral
+  const placaLat = makeSign('IGREJA DO INFINITY', '#3a2a5e', '#ffd166');
+  placaLat.scale.set(.9, .9, .9);
+  placaLat.position.set(C.x + C.hw + .3, wallH - .2, C.z);
+  placaLat.rotation.y = -Math.PI/2;
+  scene.add(placaLat);
 
   // Piso de madeira
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 12.6),
@@ -855,6 +1009,227 @@ function buildLago() {
   }
 }
 buildFeira(); buildParquinho(); buildLago();
+buildButeco();
+
+// ---------- Palco do Festival Infinity ----------
+const PALCO = { x:30, z:-30 };
+let palcoLuzes = [];
+function buildPalco() {
+  const PX = PALCO.x, PZ = PALCO.z;
+  // tablado
+  const tablado = new THREE.Mesh(new THREE.BoxGeometry(9, .8, 6),
+    new THREE.MeshStandardMaterial({ color:0x2a2a33, roughness:.7 }));
+  tablado.position.set(PX, .4, PZ); tablado.castShadow = true; tablado.receiveShadow = true; scene.add(tablado);
+  obstacles.push({ rect:true, x:PX, z:PZ, hw:4.5, hd:3 });
+
+  // fundo do palco (telão)
+  const telao = new THREE.Mesh(new THREE.BoxGeometry(9, 5, .3),
+    new THREE.MeshStandardMaterial({ color:0x0a0a14, emissive:0x1a0a2e, emissiveIntensity:.4, roughness:.5 }));
+  telao.position.set(PX, 3.3, PZ - 3); telao.castShadow = true; scene.add(telao);
+  // letreiro INFINITY no telão
+  const letreiro = makeSign('INFINITY', '#0a0a14', '#ff4fc3');
+  letreiro.scale.set(1.6, 1.6, 1.6);
+  letreiro.position.set(PX, 3.8, PZ - 2.82); scene.add(letreiro);
+  // símbolo ∞ embaixo
+  const simb = makeSign('∞ ∞ ∞', '#0a0a14', '#22d3ee');
+  simb.scale.set(1.2, 1.2, 1.2);
+  simb.position.set(PX, 2.3, PZ - 2.82); scene.add(simb);
+
+  // caixas de som
+  [-3.8, 3.8].forEach(ox => {
+    const caixa = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 1.2),
+      new THREE.MeshStandardMaterial({ color:0x16161c, roughness:.6 }));
+    caixa.position.set(PX + ox, 1.2, PZ + 1.5); caixa.castShadow = true; scene.add(caixa);
+    // cones dos alto-falantes
+    [.6, 1.4].forEach(oy => {
+      const cone = new THREE.Mesh(new THREE.CircleGeometry(.4, 12),
+        new THREE.MeshStandardMaterial({ color:0x333, roughness:.4 }));
+      cone.position.set(PX + ox, oy, PZ + 2.11); scene.add(cone);
+    });
+    obstacles.push({ x:PX + ox, z:PZ + 1.5, r:.8 });
+  });
+
+  // luzes de palco coloridas (refletores)
+  const cores = [0xff4fc3, 0x22d3ee, 0xffd166, 0x4ade80, 0xa78bfa];
+  for (let i = 0; i < 5; i++) {
+    const luz = new THREE.PointLight(cores[i], 0, 14, 2);
+    luz.position.set(PX - 4 + i*2, 5.5, PZ - 1);
+    scene.add(luz);
+    palcoLuzes.push(luz);
+    // refletor visual
+    const ref = new THREE.Mesh(new THREE.ConeGeometry(.25, .5, 8),
+      new THREE.MeshStandardMaterial({ color:0x222, emissive:cores[i], emissiveIntensity:.3 }));
+    ref.position.set(PX - 4 + i*2, 5.5, PZ - 1); ref.rotation.x = Math.PI; scene.add(ref);
+  }
+
+  // treliça de estrutura em cima
+  const trelica = new THREE.Mesh(new THREE.BoxGeometry(9.5, .25, .25),
+    new THREE.MeshStandardMaterial({ color:0x444, metalness:.6, roughness:.4 }));
+  trelica.position.set(PX, 5.8, PZ - 1); scene.add(trelica);
+  [-4.5, 4.5].forEach(ox => {
+    const poste = new THREE.Mesh(new THREE.BoxGeometry(.25, 6, .25), trelica.material);
+    poste.position.set(PX + ox, 3, PZ - 1); scene.add(poste);
+  });
+}
+buildPalco();
+
+// ---------- Buteco do Infinity ----------
+function buildButeco() {
+  const BX = -34, BZ = 4;
+  // piso de cimento queimado
+  const piso = new THREE.Mesh(new THREE.CircleGeometry(7, 24),
+    new THREE.MeshStandardMaterial({ color:0x6b5d4f, roughness:.95 }));
+  piso.rotation.x = -Math.PI/2; piso.position.set(BX, .02, BZ); piso.receiveShadow = true; scene.add(piso);
+
+  // balcão em L
+  const balcMat = new THREE.MeshStandardMaterial({ color:0x8a3b2a, roughness:.7 });
+  const balc1 = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.1, .8), balcMat);
+  balc1.position.set(BX, .55, BZ - 2.5); balc1.castShadow = true; scene.add(balc1);
+  const tampo1 = new THREE.Mesh(new THREE.BoxGeometry(4.7, .12, 1), new THREE.MeshStandardMaterial({ color:0x2c2c2c, roughness:.4, metalness:.3 }));
+  tampo1.position.set(BX, 1.15, BZ - 2.5); scene.add(tampo1);
+  obstacles.push({ rect:true, x:BX, z:BZ - 2.5, hw:2.3, hd:.5 });
+
+  // prateleira de bebidas atrás
+  const prat = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.8, .3), new THREE.MeshStandardMaterial({ color:0x4a3320, roughness:.8 }));
+  prat.position.set(BX, 1.6, BZ - 3.4); scene.add(prat);
+  for (let i = 0; i < 8; i++) {
+    const garrafa = new THREE.Mesh(new THREE.CylinderGeometry(.08, .08, .5, 6),
+      new THREE.MeshStandardMaterial({ color:[0x3a7d2c, 0x8a4f1a, 0xd4af37, 0x7a2c2c][i%4], roughness:.3, metalness:.2 }));
+    garrafa.position.set(BX - 1.9 + i*.55, 1.5 + (i%2)*.6, BZ - 3.3); scene.add(garrafa);
+  }
+
+  // banquetas no balcão
+  for (let i = -1; i <= 1; i++) {
+    const banq = new THREE.Group();
+    const assento = new THREE.Mesh(new THREE.CylinderGeometry(.28, .28, .12, 10),
+      new THREE.MeshStandardMaterial({ color:0xd9342b, roughness:.6 }));
+    assento.position.y = .9; banq.add(assento);
+    const pe = new THREE.Mesh(new THREE.CylinderGeometry(.05, .07, .9, 6),
+      new THREE.MeshStandardMaterial({ color:0x2c2c2c, metalness:.5, roughness:.4 }));
+    pe.position.y = .45; banq.add(pe);
+    banq.position.set(BX + i*1.3, 0, BZ - 1.6); scene.add(banq);
+    obstacles.push({ x:BX + i*1.3, z:BZ - 1.6, r:.4 });
+  }
+
+  // mesas com guarda-sol
+  const mesaPos = [[BX - 3, BZ + 2.5], [BX + 3, BZ + 2.5], [BX, BZ + 4]];
+  const guardaSolCor = [0xd9342b, 0x2d6cdf, 0x1f9e5f];
+  mesaPos.forEach((p, idx) => {
+    const [mx, mz] = p;
+    const tampo = new THREE.Mesh(new THREE.CylinderGeometry(.8, .8, .1, 12),
+      new THREE.MeshStandardMaterial({ color:0xf0e8d8, roughness:.6 }));
+    tampo.position.set(mx, .9, mz); tampo.castShadow = true; scene.add(tampo);
+    const peM = new THREE.Mesh(new THREE.CylinderGeometry(.08, .1, .9, 8),
+      new THREE.MeshStandardMaterial({ color:0x4a3320 }));
+    peM.position.set(mx, .45, mz); scene.add(peM);
+    // guarda-sol
+    const haste = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, 3, 6),
+      new THREE.MeshStandardMaterial({ color:0x5a4a3a }));
+    haste.position.set(mx, 2, mz); scene.add(haste);
+    const lona = new THREE.Mesh(new THREE.ConeGeometry(1.8, .8, 8),
+      new THREE.MeshStandardMaterial({ color:guardaSolCor[idx], roughness:.8 }));
+    lona.position.set(mx, 3.3, mz); lona.castShadow = true; scene.add(lona);
+    obstacles.push({ x:mx, z:mz, r:.9 });
+  });
+
+  // barris de chopp
+  for (let i = 0; i < 3; i++) {
+    const barril = new THREE.Mesh(new THREE.CylinderGeometry(.4, .4, .9, 12),
+      new THREE.MeshStandardMaterial({ color:0xb5651d, roughness:.5, metalness:.3 }));
+    barril.position.set(BX + 2.8 + (i%2)*.5, .45, BZ - 2.2 - i*.5); barril.castShadow = true; scene.add(barril);
+    obstacles.push({ x:barril.position.x, z:barril.position.z, r:.5 });
+  }
+
+  // letreiro neon "BUTECO DO INFINITY"
+  const letreiro = makeSign('BUTECO DO INFINITY', '#1a0d2e', '#ff4fc3');
+  letreiro.scale.set(1.3, 1.3, 1.3);
+  letreiro.position.set(BX, 3, BZ - 3.5); scene.add(letreiro);
+  // luz neon rosa
+  const neonLight = new THREE.PointLight(0xff4fc3, 1.2, 12, 2);
+  neonLight.position.set(BX, 3, BZ - 2); scene.add(neonLight);
+}
+
+// ---------- Objetos espalhados (preenche áreas vazias) ----------
+function buildScatter() {
+  const ocupado = (x, z) => {
+    if (Math.hypot(x, z) < 8) return true;                       // centro/fonte
+    if (Math.hypot(x, z) > ARENA - 3) return true;               // borda
+    if (Math.abs(x) < 3.5 || Math.abs(z) < 3.5) return true;     // caminhos
+    if (Math.hypot(x - 17, z + 17) < 11) return true;            // quadra
+    if (x > -29 && x < -15 && z > -25 && z < -7) return true;    // igreja
+    if (Math.hypot(x - 32, z - 16) < 9) return true;             // feira
+    if (Math.hypot(x + 30, z - 26) < 10) return true;            // parquinho
+    if (Math.hypot(x - 10, z + 42) < 13) return true;            // lago
+    if (Math.hypot(x + 34, z - 4) < 9) return true;              // buteco
+    if (Math.hypot(x - 30, z + 30) < 9) return true;             // palco
+    return false;
+  };
+
+  // arbustos (decorativos, com leve colisão)
+  for (let i = 0; i < 26; i++) {
+    let x, z, tent = 0;
+    do { x = rand(-ARENA+4, ARENA-4); z = rand(-ARENA+4, ARENA-4); tent++; } while (ocupado(x, z) && tent < 30);
+    if (tent >= 30) continue;
+    const bush = new THREE.Group();
+    const cor = [0x3f7d33, 0x4caf3f, 0x2e7d28][i % 3];
+    for (let b = 0; b < 3; b++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(rand(.4, .7), 8, 7),
+        new THREE.MeshStandardMaterial({ color:cor, roughness:1 }));
+      m.position.set(rand(-.4, .4), rand(.3, .6), rand(-.4, .4));
+      m.castShadow = true; bush.add(m);
+    }
+    bush.position.set(x, 0, z); scene.add(bush);
+    if (i % 2 === 0) obstacles.push({ x, z, r:.7 });
+  }
+
+  // floreiras coloridas
+  for (let i = 0; i < 14; i++) {
+    let x, z, tent = 0;
+    do { x = rand(-ARENA+4, ARENA-4); z = rand(-ARENA+4, ARENA-4); tent++; } while (ocupado(x, z) && tent < 30);
+    if (tent >= 30) continue;
+    const vaso = new THREE.Mesh(new THREE.CylinderGeometry(.4, .3, .5, 8),
+      new THREE.MeshStandardMaterial({ color:0xb5651d, roughness:.9 }));
+    vaso.position.set(x, .25, z); vaso.castShadow = true; scene.add(vaso);
+    const florCor = [0xff5fa2, 0xffd166, 0xa78bfa, 0xff6b6b][i % 4];
+    for (let f = 0; f < 4; f++) {
+      const flor = new THREE.Mesh(new THREE.SphereGeometry(.13, 6, 6),
+        new THREE.MeshStandardMaterial({ color:florCor, emissive:florCor, emissiveIntensity:.2, roughness:.7 }));
+      flor.position.set(x + rand(-.25, .25), .6, z + rand(-.25, .25)); scene.add(flor);
+    }
+    obstacles.push({ x, z, r:.5 });
+  }
+
+  // lixeiras e hidrantes
+  for (let i = 0; i < 10; i++) {
+    let x, z, tent = 0;
+    do { x = rand(-ARENA+4, ARENA-4); z = rand(-ARENA+4, ARENA-4); tent++; } while (ocupado(x, z) && tent < 30);
+    if (tent >= 30) continue;
+    if (i % 2 === 0) {
+      const lixo = new THREE.Mesh(new THREE.CylinderGeometry(.3, .28, .9, 8),
+        new THREE.MeshStandardMaterial({ color:0x2f7d4f, roughness:.7 }));
+      lixo.position.set(x, .45, z); lixo.castShadow = true; scene.add(lixo);
+    } else {
+      const hid = new THREE.Mesh(new THREE.CylinderGeometry(.18, .22, .7, 8),
+        new THREE.MeshStandardMaterial({ color:0xd9342b, roughness:.6, metalness:.3 }));
+      hid.position.set(x, .35, z); hid.castShadow = true; scene.add(hid);
+      const topo = new THREE.Mesh(new THREE.SphereGeometry(.2, 8, 8), hid.material);
+      topo.position.set(x, .72, z); scene.add(topo);
+    }
+    obstacles.push({ x, z, r:.45 });
+  }
+
+  // pedras decorativas
+  for (let i = 0; i < 12; i++) {
+    let x, z, tent = 0;
+    do { x = rand(-ARENA+4, ARENA-4); z = rand(-ARENA+4, ARENA-4); tent++; } while (ocupado(x, z) && tent < 30);
+    if (tent >= 30) continue;
+    const pedra = new THREE.Mesh(new THREE.DodecahedronGeometry(rand(.4, .8)),
+      new THREE.MeshStandardMaterial({ color:0x8e8b80, roughness:1 }));
+    pedra.position.set(x, .3, z); pedra.scale.y = .7; pedra.castShadow = true; scene.add(pedra);
+    obstacles.push({ x, z, r:.6 });
+  }
+}
+buildScatter();
 
 // ---------- Skins ----------
 function flagUSATex() {
@@ -892,20 +1267,20 @@ const SKINS = {
   cacador:  { nome:'CAÇADOR',  armor:0x14101f, armorLight:0x241b38, glow:0xb26bff, glowE:0x9b5cf6, cape:{ color:0x0d0a16 } },
   patriota: { nome:'PATRIOTA', armor:0x1a2440, armorLight:0x26365c, glow:0xffd166, glowE:0xe6a817, cape:{ flag:'usa' } },
   brasil:   { nome:'BRASIL',   armor:0x123524, armorLight:0x1c4d33, glow:0xffdf00, glowE:0xd4b800, cape:{ flag:'br' } },
-  neon:     { nome:'NEON',     armor:0x0a1420, armorLight:0x122438, glow:0x00e5ff, glowE:0x00b8d4, cape:{ color:0x07111c } },
+  unicornio:{ nome:'UNICÓRNIO',armor:0xfbd5e8, armorLight:0xf2b8df, glow:0xff8ed6, glowE:0xff4fc3, cape:{ color:0xe5c4ff }, unicornio:true },
 };
 let currentSkin = SKINS.cacador;
 
 // ---------- Jogador: INFINITY × HUNTER ----------
 const player = new THREE.Group();
 let rightArm, leftArm, rightLeg, leftLeg, sword, swordGlow, hammer, minigunMesh, bombHand, aura, playerGlow;
-let matArmor, matArmorLight, matBoot, capeMesh;
+let matArmor, matArmorLight, matBoot, capeMesh, unicornParts, wand, playerLight;
 
 function buildPlayer() {
   matArmor = new THREE.MeshStandardMaterial({ color:0x14101f, roughness:.85 });
   matArmorLight = new THREE.MeshStandardMaterial({ color:0x241b38, roughness:.85 });
   matBoot = new THREE.MeshStandardMaterial({ color:0x0b0813, roughness:.85 });
-  playerGlow = new THREE.MeshStandardMaterial({ color:0xb26bff, emissive:0x9b5cf6, emissiveIntensity:1.5, roughness:.2 });
+  playerGlow = new THREE.MeshStandardMaterial({ color:0xb26bff, emissive:0x9b5cf6, emissiveIntensity:2.2, roughness:.15, metalness:.3 });
   const mk = (w,h,d,m) => { const ms = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m); ms.castShadow = true; return ms; };
 
   // Pernas
@@ -1019,8 +1394,56 @@ function buildPlayer() {
   aura.rotation.x = -Math.PI/2; aura.position.y = .06; aura.visible = false;
   player.add(aura);
 
+  // ---------- Peças de UNICÓRNIO (escondidas por padrão) ----------
+  unicornParts = new THREE.Group();
+  // Chifre dourado espiralado
+  const chifre = new THREE.Mesh(new THREE.ConeGeometry(.12, .7, 8),
+    new THREE.MeshStandardMaterial({ color:0xffd700, emissive:0xffaa00, emissiveIntensity:.5, metalness:.6, roughness:.3 }));
+  chifre.position.set(0, 3.05, .15); unicornParts.add(chifre);
+  // Orelhas
+  [-.28, .28].forEach(x => {
+    const orelha = new THREE.Mesh(new THREE.ConeGeometry(.1, .28, 5),
+      new THREE.MeshStandardMaterial({ color:0xfbd5e8, roughness:.7 }));
+    orelha.position.set(x, 2.78, 0); orelha.rotation.z = x > 0 ? -.3 : .3; unicornParts.add(orelha);
+  });
+  // Crina colorida (mechas de arco-íris atrás da cabeça)
+  const maneCores = [0xff4fc3, 0xa78bfa, 0x22d3ee, 0x4ade80, 0xffd166];
+  maneCores.forEach((c, i) => {
+    const mecha = new THREE.Mesh(new THREE.BoxGeometry(.14, .5, .14),
+      new THREE.MeshStandardMaterial({ color:c, roughness:.6 }));
+    mecha.position.set((i - 2) * .14, 2.55 - Math.abs(i-2)*.05, -.28);
+    mecha.rotation.x = -.3; unicornParts.add(mecha);
+  });
+  // Rabo/cauda colorida
+  const tail = new THREE.Group();
+  maneCores.forEach((c, i) => {
+    const fio = new THREE.Mesh(new THREE.BoxGeometry(.1, .7, .1),
+      new THREE.MeshStandardMaterial({ color:c, roughness:.6 }));
+    fio.position.set((i - 2) * .09, 1.0, -.35); fio.rotation.x = .5; tail.add(fio);
+  });
+  unicornParts.add(tail);
+  unicornParts.visible = false;
+  player.add(unicornParts);
+
+  // Varinha de arco-íris (substitui a espada na skin unicórnio)
+  wand = new THREE.Group();
+  const cabo = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, .9, 6),
+    new THREE.MeshStandardMaterial({ color:0xfff0f8, roughness:.4 }));
+  cabo.position.y = .45; wand.add(cabo);
+  const estrela = new THREE.Mesh(new THREE.OctahedronGeometry(.22),
+    new THREE.MeshStandardMaterial({ color:0xffd166, emissive:0xffd166, emissiveIntensity:1.2, roughness:.2 }));
+  estrela.position.y = 1; wand.add(estrela);
+  wand.position.y = -.75; wand.rotation.x = Math.PI/2.2;
+  wand.visible = false;
+  rightArm.add(wand);
+
   player.position.set(0, 0, 10);
   scene.add(player);
+
+  // luz mágica suave que acompanha o jogador (brilha o chão ao redor, lindo à noite)
+  playerLight = new THREE.PointLight(0xb26bff, .8, 9, 2);
+  playerLight.position.set(0, 2, 0);
+  player.add(playerLight);
 }
 buildPlayer();
 
@@ -1040,6 +1463,18 @@ function setSkin(id) {
     capeMesh.material.color.setHex(currentSkin.cape.color);
   }
   capeMesh.material.needsUpdate = true;
+
+  // peças e arma da skin unicórnio
+  const eUnicornio = !!currentSkin.unicornio;
+  unicornParts.visible = eUnicornio;
+  // varinha aparece no lugar da espada (só quando nenhum poder de arma está ativo)
+  if (eUnicornio) {
+    sword.visible = false; wand.visible = true;
+  } else {
+    wand.visible = false;
+    if (!hammer.visible && !minigunMesh.visible && !bombHand.visible) sword.visible = true;
+  }
+
   document.querySelectorAll('.skin-btn').forEach(b =>
     b.classList.toggle('sel', b.dataset.skin === id));
 }
@@ -1063,6 +1498,7 @@ const MONSTROS = {
   fantasma:  { hp:1,  dmg:1, vel:1.55, kills:1, bar:.8 },
   zumbi:     { hp:4,  dmg:1, vel:.85,  kills:2, bar:1 },
   gigante:   { hp:12, dmg:2, vel:.62,  kills:3, bar:1 },
+  alien:     { hp:3,  dmg:1, vel:1.1,  kills:1, bar:1 },   // +1 aura por kill
 };
 
 function makeHealthBar(g, w) {
@@ -1075,7 +1511,8 @@ function makeHealthBar(g, w) {
 
 function buildEsqueleto(elite) {
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: elite ? 0xcfc0a8 : 0xe8e0d0, roughness:.9 });
+  // ossos pretos; o gigante (boss) é ainda mais escuro e sombrio
+  const mat = new THREE.MeshStandardMaterial({ color: elite ? 0x16141a : 0x2b2730, roughness:.85, metalness:.15 });
   const mk = (w,h,d) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat); m.castShadow = true; return m; };
 
   const ll = mk(.18,.75,.18); ll.geometry.translate(0,-.37,0); ll.position.set(-.15, 1, 0);
@@ -1088,9 +1525,10 @@ function buildEsqueleto(elite) {
   }
 
   const skull = mk(.48, .5, .45); skull.position.y = 2.2;
-  const eyeMat = new THREE.MeshBasicMaterial({ color: elite ? 0xff8800 : 0xff2244 });
+  // olhos brilhantes (boss = vermelho intenso)
+  const eyeMat = new THREE.MeshBasicMaterial({ color: elite ? 0xff1133 : 0xff3344 });
   [-.11, .11].forEach(x => {
-    const eye = new THREE.Mesh(new THREE.BoxGeometry(elite ? .13 : .1, elite ? .13 : .1, .02), eyeMat);
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(elite ? .15 : .1, elite ? .15 : .1, .02), eyeMat);
     eye.position.set(x, .05, .23); skull.add(eye);
   });
   const jaw = mk(.4, .12, .35); jaw.position.set(0, -.3, .03); skull.add(jaw);
@@ -1103,6 +1541,29 @@ function buildEsqueleto(elite) {
     arm.rotation.x = -Math.PI/2.4;
     g.add(arm);
   });
+
+  // BOSS: chifres ameaçadores + aura sombria + espinhos nas costas
+  if (elite) {
+    const chifreMat = new THREE.MeshStandardMaterial({ color:0x0a0a0c, roughness:.6, metalness:.3 });
+    [-.22, .22].forEach(x => {
+      const chifre = new THREE.Mesh(new THREE.ConeGeometry(.1, .55, 6), chifreMat);
+      chifre.position.set(x, .42, 0); chifre.rotation.z = x > 0 ? -.5 : .5;
+      chifre.rotation.x = -.3; skull.add(chifre);
+    });
+    // espinhos na coluna
+    for (let i = 0; i < 3; i++) {
+      const esp = new THREE.Mesh(new THREE.ConeGeometry(.08, .35, 5), chifreMat);
+      esp.position.set(0, 1.35 + i*.28, -.18); esp.rotation.x = -2.4; g.add(esp);
+    }
+    // brilho vermelho ameaçador ao redor da cabeça
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(.6, 12, 10),
+      new THREE.MeshBasicMaterial({ color:0xff0022, transparent:true, opacity:.14 }));
+    halo.position.y = 2.2; g.add(halo);
+    // luz vermelha pulsante
+    const bossLight = new THREE.PointLight(0xff1133, 1.2, 7, 2);
+    bossLight.position.set(0, 2.2, 0); g.add(bossLight);
+    g.userData.bossLight = bossLight;
+  }
   return { g, mat };
 }
 
@@ -1198,22 +1659,63 @@ function spawnMonster(speed, kind, pos) {
   if (kind === 'mumia') built = buildMumia();
   else if (kind === 'fantasma') built = buildFantasma();
   else if (kind === 'zumbi') built = buildZumbi();
+  else if (kind === 'alien') built = buildAlien();
   else built = buildEsqueleto(kind === 'gigante');
   const { g, mat } = built;
   const barFg = makeHealthBar(g, conf.bar);
-  if (kind === 'gigante') g.scale.setScalar(1.85);
+  // Boss fica mais forte e maior a partir da onda 10
+  let hpMult = 1, dmgBonus = 0, escala = 1;
+  if (kind === 'gigante') {
+    escala = 1.85;
+    if (state.wave >= 10) {
+      hpMult = 1.8; dmgBonus = 1; escala = 2.3;     // boss aprimorado: +80% vida, +1 dano, maior
+    }
+    g.scale.setScalar(escala);
+  }
   g.position.copy(pos || spawnPosNearPlayer(16, 24));
 
+  const hpFinal = Math.round(conf.hp * hpMult);
   const e = { mesh:g, mat, barFg, kind,
     baseColor: mat.color.getHex(),
-    hp:conf.hp, maxHp:conf.hp,
+    hp:hpFinal, maxHp:hpFinal,
     elite: kind === 'gigante',
     ghost: kind === 'fantasma',
-    dmg: conf.dmg, killsVal: conf.kills,
+    alienReward: kind === 'alien',
+    dmg: conf.dmg + dmgBonus, killsVal: conf.kills,
     speed: speed * conf.vel,
     atkCd: rand(.3, 1), dying:0, bobSeed:Math.random()*10 };
   enemies.push(e);
   scene.add(g);
+}
+
+function buildAlien() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color:0x4ade80, emissive:0x16a34a, emissiveIntensity:.4, roughness:.5 });
+  const mk = (geo, m2) => { const m = new THREE.Mesh(geo, m2 || mat); m.castShadow = true; return m; };
+  // pernas finas
+  [-.13, .13].forEach(x => {
+    const leg = mk(new THREE.CylinderGeometry(.07, .05, .8, 6));
+    leg.geometry.translate(0, -.4, 0); leg.position.set(x, 1, 0); g.add(leg);
+  });
+  // corpo
+  const corpo = mk(new THREE.CylinderGeometry(.28, .22, .9, 10));
+  corpo.position.y = 1.5; g.add(corpo);
+  // cabeça grande oval
+  const cabeca = mk(new THREE.SphereGeometry(.42, 12, 12));
+  cabeca.scale.set(1, 1.25, .9); cabeca.position.y = 2.25; g.add(cabeca);
+  // olhos pretos amendoados
+  const olhoMat = new THREE.MeshBasicMaterial({ color:0x080808 });
+  [-.16, .16].forEach(x => {
+    const olho = new THREE.Mesh(new THREE.SphereGeometry(.12, 8, 8), olhoMat);
+    olho.scale.set(.7, 1.3, .4); olho.position.set(x, 2.25, .34); g.add(olho);
+  });
+  // bracinhos
+  [-.32, .32].forEach(x => {
+    const arm = mk(new THREE.CylinderGeometry(.05, .04, .65, 6));
+    arm.geometry.translate(0, -.3, 0); arm.position.set(x, 1.75, 0);
+    arm.rotation.z = x > 0 ? .5 : -.5; g.add(arm);
+  });
+  return { g, mat };
 }
 
 function startWave() {
@@ -1221,6 +1723,15 @@ function startWave() {
   // ciclo dia/noite: alterna a cada 3 ondas (1-3 dia, 4-6 noite, 7-9 dia...)
   const deveSerNoite = Math.floor((state.wave - 1) / 3) % 2 === 1;
   if (deveSerNoite !== ehNoite) setPeriodo(deveSerNoite);
+
+  document.getElementById('waveLabel').textContent = 'ONDA ' + state.wave;
+
+  // NOITE = Evento Alienígena (sem ondas de zumbi)
+  if (deveSerNoite) {
+    startAlienEvent();
+    return;
+  }
+
   const count = 3 + state.wave * 2;
   const speed = Math.min(1.8 + state.wave * .18, 3.8);
   const elites = state.wave >= 3 ? Math.min(1 + Math.floor((state.wave - 3) / 2), 3) : 0;
@@ -1240,13 +1751,171 @@ function startWave() {
   for (let i = 0; i < elites; i++) setTimeout(() => {
     if (state.playing) spawnMonster(speed, 'gigante');
   }, 1200 + i * 900);
-  document.getElementById('waveLabel').textContent = 'ONDA ' + state.wave;
-  showMsg(elites > 0 ? 'ONDA ' + state.wave + ' ⚠️ GIGANTE!' : 'ONDA ' + state.wave);
+  showMsg(elites > 0
+    ? 'ONDA ' + state.wave + (state.wave >= 10 ? ' 💀 BOSS SOMBRIO!' : ' ⚠️ GIGANTE!')
+    : 'ONDA ' + state.wave);
   sfx('wave');
 }
 
-// ---------- Açaí (3 poderes diferentes) ----------
-let acaiTimer = 5;
+// ---------- Evento Alienígena (noite) ----------
+const ufo = {
+  ativo:false, mesh:null, beam:null, hp:0, maxHp:0,
+  alvo:new THREE.Vector3(), spawnCd:0, paradoT:0, abduzindo:false,
+  estado:'patrulha', estadoT:0, y:11, pousada:false,
+  avisouPouso:false, tempoEvento:0,
+};
+
+function buildUfo() {
+  const g = new THREE.Group();
+  // disco
+  const disco = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 1.4, .7, 20),
+    new THREE.MeshStandardMaterial({ color:0x9aa7b8, roughness:.3, metalness:.7 }));
+  disco.castShadow = true; g.add(disco);
+  // cúpula
+  const cupula = new THREE.Mesh(new THREE.SphereGeometry(1.3, 16, 12, 0, Math.PI*2, 0, Math.PI/2),
+    new THREE.MeshStandardMaterial({ color:0x6ee7ff, emissive:0x22d3ee, emissiveIntensity:.6, transparent:true, opacity:.8, roughness:.1 }));
+  cupula.position.y = .3; g.add(cupula);
+  // luzes piscantes embaixo
+  const luzes = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i/8) * Math.PI*2;
+    const luz = new THREE.Mesh(new THREE.SphereGeometry(.18, 8, 8),
+      new THREE.MeshBasicMaterial({ color:0xffe14d }));
+    luz.position.set(Math.cos(a)*2, -.3, Math.sin(a)*2);
+    g.add(luz); luzes.push(luz);
+  }
+  // brilho geral
+  const glow = new THREE.Mesh(new THREE.SphereGeometry(3.4, 16, 12),
+    new THREE.MeshBasicMaterial({ color:0x22d3ee, transparent:true, opacity:.12 }));
+  g.add(glow);
+  g.userData.luzes = luzes;
+  return g;
+}
+
+function startAlienEvent() {
+  if (ufo.ativo) return;
+  ufo.ativo = true;
+  ufo.maxHp = 40 + state.wave * 4;       // bem mais vida que inimigo comum
+  ufo.hp = ufo.maxHp;
+  ufo.spawnCd = 2;
+  ufo.paradoT = 0;
+  ufo.abduzindo = false;
+  ufo.estado = 'patrulha'; ufo.estadoT = rand(4, 7); ufo.y = 11; ufo.pousada = false;
+  ufo.avisouPouso = false; ufo.tempoEvento = 0;
+
+  ufo.mesh = buildUfo();
+  ufo.mesh.position.set(rand(-15, 15), 11, rand(-15, 15));
+  scene.add(ufo.mesh);
+  novoAlvoUfo();
+
+  // feixe de abdução (escondido por padrão)
+  ufo.beam = new THREE.Mesh(new THREE.CylinderGeometry(.4, 2.6, 11, 18, 1, true),
+    new THREE.MeshBasicMaterial({ color:0x6ee7ff, transparent:true, opacity:.0, side:THREE.DoubleSide }));
+  ufo.beam.position.y = 5.5;
+  scene.add(ufo.beam);
+
+  // barra de vida do boss
+  const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color:0x111111 }));
+  bg.scale.set(5.5, .3, 1); bg.position.y = 3.2; ufo.mesh.add(bg);
+  const fg = new THREE.Sprite(new THREE.SpriteMaterial({ color:0x22d3ee }));
+  fg.scale.set(5.3, .22, 1); fg.position.y = 3.2; ufo.mesh.add(fg);
+  ufo.barFg = fg; ufo.barBg = bg;
+  bg.visible = false; fg.visible = false;
+
+  showMsg('⚠ CONTATO EXTRATERRESTRE ⚠');
+  if (typeof sfx === 'function') sfx('ufo');
+}
+
+function novoAlvoUfo() {
+  ufo.alvo.set(rand(-ARENA*.6, ARENA*.6), 11, rand(-ARENA*.6, ARENA*.6));
+}
+
+function hitUfo(dmg) {
+  if (!ufo.ativo || !ufo.pousada) return;        // só toma dano pousada
+  ufo.hp -= dmg;
+  ufo.barFg.scale.x = Math.max(0, 5.3 * (ufo.hp / ufo.maxHp));
+  if (ufo.hp <= 0) destroyUfo();
+}
+
+function fimAlienEvent() {
+  // tempo esgotou: nave foge sem ser destruída, volta o dia
+  if (ufo.mesh) scene.remove(ufo.mesh);
+  if (ufo.beam) scene.remove(ufo.beam);
+  ufo.mesh = null; ufo.beam = null; ufo.ativo = false;
+  for (const e of enemies) if (e.kind === 'alien' && e.dying <= 0) { e.hp = 0; e.dying = .6; }
+  showMsg('🛸 A NAVE FUGIU...');
+  voltarParaDia();
+}
+
+function voltarParaDia() {
+  // avança a contagem de ondas até sair do bloco noturno (volta a ser dia)
+  while (Math.floor(((state.wave + 1) - 1) / 3) % 2 === 1) state.wave++;
+  setTimeout(() => { if (state.playing && enemies.filter(e=>e.dying<=0).length === 0) startWave(); }, 2500);
+}
+
+function destroyUfo() {
+  // explosão
+  addShake(1);
+  if (typeof sfx === 'function') sfx('boom');
+  const fl = new THREE.Mesh(new THREE.SphereGeometry(2, 14, 12),
+    new THREE.MeshBasicMaterial({ color:0x6ee7ff, transparent:true, opacity:.9 }));
+  fl.position.copy(ufo.mesh.position);
+  scene.add(fl); explosions.push({ mesh:fl, t:0 });
+
+  scene.remove(ufo.mesh); scene.remove(ufo.beam);
+  ufo.mesh = null; ufo.beam = null; ufo.ativo = false;
+
+  // recompensa: +5 aura
+  for (let k = 0; k < 5; k++) {
+    state.aura++;
+    if (state.aura >= auraMilestone) {
+      const tier = Math.min(3, Math.round(auraMilestone / 10));
+      auraMilestone += 10;
+      triggerSupremo(tier);
+    }
+  }
+  updateAuraHud();
+
+  // recompensa de BOSS: melhoria permanente aleatória
+  grantBossReward();
+
+  // mata os aliens restantes e termina o evento
+  for (const e of enemies) if (e.kind === 'alien' && e.dying <= 0) { e.hp = 0; e.dying = .6; }
+  showMsg('🛸 NAVE DESTRUÍDA! +5 AURA');
+  voltarParaDia();
+}
+
+// ---------- Recompensas de Boss (permanentes) ----------
+const upgrades = { dano:0, vel:0, vidaExtra:0, giratorio:false };
+const BOSS_REWARDS = [
+  { id:'espada',    nome:'⚔️ ESPADA MAIOR',      cor:0xc0c0ff, aplica:() => { upgrades.dano += 1; } },
+  { id:'vel',       nome:'👟 VELOCIDADE',          cor:0x4ade80, aplica:() => { upgrades.vel += .15; } },
+  { id:'vida',      nome:'❤️ MAIS VIDA',           cor:0xff3b5c, aplica:() => { upgrades.vidaExtra += 1; state.hp = Math.min(MAX_HP + upgrades.vidaExtra, state.hp + 1); updateHearts(); } },
+  { id:'dano',      nome:'💪 MAIS DANO',           cor:0xff9f1c, aplica:() => { upgrades.dano += 1; } },
+];
+function grantBossReward() {
+  const r = BOSS_REWARDS[Math.floor(Math.random() * BOSS_REWARDS.length)];
+  r.aplica();
+  setTimeout(() => showMsg('🎁 ' + r.nome + '!'), 1400);
+}
+
+// ---------- Upgrade dropado (Gigante) ----------
+let upgradeDrops = [];
+function spawnUpgrade(pos) {
+  const r = BOSS_REWARDS[Math.floor(Math.random() * BOSS_REWARDS.length)];
+  const g = new THREE.Group();
+  // estrela/cristal giratório com a cor do upgrade
+  const cristal = new THREE.Mesh(new THREE.OctahedronGeometry(.4),
+    new THREE.MeshStandardMaterial({ color:r.cor, emissive:r.cor, emissiveIntensity:.8, roughness:.2, metalness:.5 }));
+  cristal.position.y = 1; cristal.castShadow = true; g.add(cristal);
+  const halo = new THREE.Mesh(new THREE.RingGeometry(.5, .65, 20),
+    new THREE.MeshBasicMaterial({ color:r.cor, side:THREE.DoubleSide, transparent:true, opacity:.8 }));
+  halo.rotation.x = -Math.PI/2; halo.position.y = .06; g.add(halo);
+  g.position.set(pos.x, 0, pos.z);
+  g.userData = { reward:r, ttl:18 };
+  upgradeDrops.push(g); scene.add(g);
+}
+
 
 function spawnAcai(atPos) {
   const raro = Math.random() < .3;
@@ -1327,7 +1996,7 @@ function updatePowerHud() {
 // ---------- Corações ----------
 function spawnHeart(pos) {
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color:0xff3b5c, emissive:0xff3b5c, emissiveIntensity:.5, roughness:.4 });
+  const mat = new THREE.MeshStandardMaterial({ color:0xff0022, emissive:0xff0022, emissiveIntensity:.7, roughness:.35 });
   const s1 = new THREE.Mesh(new THREE.SphereGeometry(.16, 10, 10), mat); s1.position.set(-.11, .1, 0);
   const s2 = new THREE.Mesh(new THREE.SphereGeometry(.16, 10, 10), mat); s2.position.set(.11, .1, 0);
   const cone = new THREE.Mesh(new THREE.ConeGeometry(.24, .38, 4), mat);
@@ -1433,8 +2102,9 @@ function novaSuprema(dmg, raio, cor) {
 
 // ---------- HUD ----------
 function updateHearts() {
+  const maxH = MAX_HP + upgrades.vidaExtra;
   document.getElementById('hearts').innerHTML =
-    Array.from({length:MAX_HP}, (_,i) =>
+    Array.from({length:maxH}, (_,i) =>
       `<span class="${i < state.hp ? 'h-on' : 'h-off'}">♥</span>`).join('');
 }
 function updateKills() {
@@ -1457,6 +2127,7 @@ const QUEST_LOCAIS = [
   { nome:'QUADRA',    x:17,  z:-17 },
   { nome:'PRAÇA',     x:0,   z:14 },
   { nome:'RUA',       x:-14, z:-30 },
+  { nome:'BUTECO',    x:-34, z:4 },
 ];
 const quest = { ativa:false, caixas:[], total:0, pegas:0, tempo:0, tempoMax:0, cooldown:6 };
 
@@ -1497,16 +2168,16 @@ function spawnQuest() {
     quest.caixas.push(g); scene.add(g);
   }
   quest.ativa = true;
+  quest.vezes = (quest.vezes || 0) + 1;
   document.getElementById('questBanner').style.display = 'block';
   updateQuestBanner();
-  showMsg('⭐ MISSÃO: ' + n + (n > 1 ? ' CAIXAS!' : ' CAIXA!'));
+  // só mostra mensagem central na primeira missão; depois é só o ícone no canto
+  if (quest.vezes === 1) showMsg('⭐ ' + n + (n > 1 ? ' CAIXAS' : ' CAIXA'));
 }
 
 function updateQuestBanner() {
   const banner = document.getElementById('questBanner');
-  const secs = Math.ceil(quest.tempo);
-  banner.innerHTML = '📦 CAIXAS ' + quest.pegas + '/' + quest.total +
-    ' &nbsp;·&nbsp; ⏱️ ' + secs + 's &nbsp;·&nbsp; +' + (quest.total * 2) + ' aura';
+  banner.innerHTML = '📦 ' + quest.pegas + '/' + quest.total + ' · ⏱️' + Math.ceil(quest.tempo) + 's';
 }
 
 function endQuest(sucesso) {
@@ -1564,11 +2235,18 @@ function drawMinimap() {
   p = M(-30, 26);
   mmCtx.fillStyle = 'rgba(232,216,168,.95)';
   mmCtx.beginPath(); mmCtx.arc(p[0], p[1], 7*sc, 0, Math.PI*2); mmCtx.fill();          // parquinho
+  p = M(-34, 4);
+  mmCtx.fillStyle = 'rgba(255,79,195,.9)';
+  mmCtx.beginPath(); mmCtx.arc(p[0], p[1], 6*sc, 0, Math.PI*2); mmCtx.fill();          // buteco
+  p = M(30, -30);
+  mmCtx.fillStyle = 'rgba(167,139,250,.95)';
+  mmCtx.fillRect(p[0]-4.5*sc, p[1]-3*sc, 9*sc, 6*sc);                                  // palco
   // itens
   for (const a of auras) mmDot(M, a.position.x, a.position.z, '#ffd166', 2.6);
   for (const a of acais) mmDot(M, a.position.x, a.position.z, '#b26bff', 2.6);
   for (const h of heartDrops) mmDot(M, h.position.x, h.position.z, '#ff6b8a', 2.2);
   if (quest.ativa) for (const c of quest.caixas) mmDot(M, c.position.x, c.position.z, '#ffd166', 3.4);
+  if (ufo.ativo && ufo.mesh) mmDot(M, ufo.mesh.position.x, ufo.mesh.position.z, '#22d3ee', 4.5);
   // monstros
   for (const e of enemies) {
     if (e.dying > 0) continue;
@@ -1598,6 +2276,20 @@ function initAudio() {
   noiseBuffer = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
   const data = noiseBuffer.getChannelData(0);
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+}
+
+// ---------- Música do festival (banda Infinity) ----------
+let festivalAtivo = false;
+const bandMusic = document.getElementById('bandMusic');
+function startFestivalMusic() {
+  if (festivalAtivo || muted) return;
+  festivalAtivo = true;
+  try { bandMusic.volume = .6; bandMusic.currentTime = 0; bandMusic.play(); } catch (e) {}
+}
+function stopFestivalMusic() {
+  if (!festivalAtivo) return;
+  festivalAtivo = false;
+  try { bandMusic.pause(); } catch (e) {}
 }
 
 function playNoise(dur, freq, vol, filterType = 'lowpass', when = 0) {
@@ -1661,6 +2353,7 @@ function stopMusic() {
 function toggleSound() {
   muted = !muted;
   if (masterGain) masterGain.gain.value = muted ? 0 : 1;
+  if (bandMusic) bandMusic.volume = muted ? 0 : .6;
   document.getElementById('sndBtn').textContent = muted ? '🔇' : '🔊';
 }
 
@@ -1744,6 +2437,18 @@ function sfx(type) {
     o.frequency.setValueAtTime(1320, t + .07);
     gn.gain.setValueAtTime(.1, t); gn.gain.exponentialRampToValueAtTime(.001, t + .25);
     o.start(t); o.stop(t + .26);
+  } else if (type === 'ufo') {
+    o.type = 'sine'; o.frequency.setValueAtTime(300, t);
+    o.frequency.linearRampToValueAtTime(900, t + .4);
+    o.frequency.linearRampToValueAtTime(300, t + .8);
+    gn.gain.setValueAtTime(.12, t); gn.gain.exponentialRampToValueAtTime(.001, t + 1);
+    o.start(t); o.stop(t + 1.02);
+  } else if (type === 'rainbow') {
+    o.type = 'sine'; o.frequency.setValueAtTime(700, t);
+    o.frequency.exponentialRampToValueAtTime(1400, t + .15);
+    gn.gain.setValueAtTime(.1, t); gn.gain.exponentialRampToValueAtTime(.001, t + .2);
+    o.start(t); o.stop(t + .22);
+    playNoise(.12, 5000, .04, 'highpass');
   } else if (type === 'shot') {
     o.type = 'square'; o.frequency.setValueAtTime(720, t);
     o.frequency.exponentialRampToValueAtTime(280, t + .05);
@@ -1774,10 +2479,33 @@ function attack() {
     throwBomb();
     return;
   }
+  // Skin unicórnio sem poder de arma ativo → dispara arco-íris
+  if (currentSkin.unicornio && !type) {
+    state.attackT = .35; state.attackCd = .4; state.didHit = true;
+    fireRainbow();
+    return;
+  }
   state.attackT = .35;
   state.attackCd = .45;
   state.didHit = false;
   sfx(type === 'martelo' ? 'smash' : 'slash');
+}
+
+const RAINBOW_CORES = [0xff4fc3, 0xff9f1c, 0xffd166, 0x4ade80, 0x22d3ee, 0xa78bfa];
+function fireRainbow() {
+  const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(player.quaternion);
+  // três feixes em leque
+  for (let s = -1; s <= 1; s++) {
+    const ang = s * .25;
+    const dir = fwd.clone().applyAxisAngle(new THREE.Vector3(0,1,0), ang);
+    const cor = RAINBOW_CORES[Math.floor(Math.random()*RAINBOW_CORES.length)];
+    const proj = new THREE.Mesh(new THREE.SphereGeometry(.22, 8, 8),
+      new THREE.MeshBasicMaterial({ color:cor }));
+    proj.position.copy(player.position); proj.position.y = 1.6;
+    rainbowShots.push({ mesh:proj, dir, vida:1.6, dano:1 + upgrades.dano });
+    scene.add(proj);
+  }
+  sfx('rainbow');
 }
 
 function hurtEnemy(e, dmg, dir, kb) {
@@ -1794,10 +2522,19 @@ function hurtEnemy(e, dmg, dir, kb) {
     state.kills += e.killsVal;
     updateKills();
     sfx('death');
+    if (e.alienReward) {                                            // alien morto dá +1 aura
+      state.aura++;
+      if (state.aura >= auraMilestone) {
+        const tier = Math.min(3, Math.round(auraMilestone / 10));
+        auraMilestone += 10;
+        triggerSupremo(tier);
+      }
+      updateAuraHud();
+    }
     if (e.elite) {
       addShake(.4);                                                  // gigante desabando
       spawnHeart(e.mesh.position);                                   // gigante sempre dropa coração
-      if (Math.random() < .5) spawnAcai(e.mesh.position.clone());    // e às vezes um açaí
+      spawnUpgrade(e.mesh.position.clone());                         // e um upgrade permanente!
     } else if (Math.random() < .3) {
       spawnHeart(e.mesh.position);
     }
@@ -1814,6 +2551,8 @@ function applyHit() {
   let range = 2.8, dmg = 1, allDirections = false, kb = 1.4;
   if (type === 'corte')   { range = 4;   dmg = 3; allDirections = true; }
   if (type === 'martelo') { range = 4.8; dmg = 2; allDirections = true; kb = 3.2; addShake(.45); }
+  dmg += upgrades.dano;                              // bônus permanente de boss
+  if (upgrades.giratorio) { range = Math.max(range, 3.4); allDirections = true; }  // ataque giratório acerta 360°
 
   for (const e of enemies) {
     if (e.dying > 0) continue;
@@ -1823,6 +2562,11 @@ function applyHit() {
     to.normalize();
     if (!allDirections && fwd.dot(to) < .25 && dist > 1.2) continue;
     hurtEnemy(e, dmg, to, kb);
+  }
+  // acerta a nave se estiver baixa o suficiente / perto
+  if (ufo.ativo && ufo.mesh) {
+    const dToUfo = Math.hypot(ufo.mesh.position.x - player.position.x, ufo.mesh.position.z - player.position.z);
+    if (dToUfo < range + 2) hitUfo(dmg);
   }
 }
 
@@ -1904,7 +2648,7 @@ function explode(pos) {
 function damagePlayer(amount) {
   if (state.invuln > 0 || state.gameOver || state.deus > 0) return;
   state.hp = Math.max(0, state.hp - amount);
-  state.invuln = 1.2;
+  state.invuln = 2.0;
   updateHearts();
   sfx('hurt');
   addShake(.55);
@@ -1918,6 +2662,7 @@ function endGame() {
   state.playing = false;
   state.gameOver = true;
   stopMusic();
+  stopFestivalMusic();
   const score = state.kills * 10 + state.wave * 100;
   document.getElementById('finalStats').innerHTML =
     `Monstros derrotados: <b>${state.kills}</b> &nbsp;·&nbsp; Onda: <b>${state.wave}</b><br>Pontuação: <b>${score}</b>`;
@@ -2107,9 +2852,16 @@ function startGame() {
   bombs.forEach(b => scene.remove(b.mesh)); bombs = [];
   explosions.forEach(x => scene.remove(x.mesh)); explosions = [];
   if (quest.caixas) quest.caixas.forEach(c => scene.remove(c));
-  quest.ativa = false; quest.caixas = []; quest.pegas = 0; quest.cooldown = 6;
+  quest.ativa = false; quest.caixas = []; quest.pegas = 0; quest.cooldown = 6; quest.vezes = 0;
+  stopFestivalMusic();
   document.getElementById('questBanner').style.display = 'none';
   ehNoite = false; luzAlvo = Object.assign({}, DIA); luzAtual = Object.assign({}, DIA);
+  if (ufo.mesh) scene.remove(ufo.mesh);
+  if (ufo.beam) scene.remove(ufo.beam);
+  ufo.ativo = false; ufo.mesh = null; ufo.beam = null; ufo.paradoT = 0; ufo.abduzindo = false;
+  upgrades.dano = 0; upgrades.vel = 0; upgrades.vidaExtra = 0; upgrades.giratorio = false;
+  if (upgradeDrops) upgradeDrops.forEach(u => scene.remove(u)); upgradeDrops = [];
+  rainbowShots.forEach(r => scene.remove(r.mesh)); rainbowShots = [];
   auraMilestone = 10;
   minigunCd = 0; deusTick = .5;
   acaiTimer = 5;
@@ -2193,6 +2945,16 @@ function animate() {
     if (cl.position.x > 95) cl.position.x = -95;
   }
   updateLuz(dt);
+  // vaga-lumes flutuando suavemente
+  if (fireflies) {
+    const fp = fireflies.geometry.attributes.position.array;
+    for (let i = 0; i < fp.length; i += 3) {
+      fp[i+1] += Math.sin(t * 1.5 + i) * dt * .15;
+    }
+    fireflies.geometry.attributes.position.needsUpdate = true;
+    fireflyMat.opacity = .35 + (ehNoite ? .4 : .15) + Math.sin(t*2) * .15;
+    fireflyMat.color.setHex(ehNoite ? 0xa0e0ff : 0xfff0b0);
+  }
 
   // sol acompanha o jogador (sombras nítidas mesmo no mapa grande)
   sun.position.set(player.position.x + 28, 42, player.position.z + 18);
@@ -2210,10 +2972,12 @@ function animate() {
     const moving = mlen > .15;
     if (moving) {
       mx /= Math.max(mlen, 1); mz /= Math.max(mlen, 1);
-      const spd = PLAYER_SPEED * (state.power > 0 && state.powerType === 'corte' ? 1.35 : 1);
+      const spd = PLAYER_SPEED * (1 + upgrades.vel)
+        * (state.power > 0 && state.powerType === 'corte' ? 1.35 : 1);
       player.position.x += mx * spd * dt;
       player.position.z += mz * spd * dt;
       clampToArena(player.position);
+      ufo.paradoT = 0;                       // se mexeu, zera o timer de abdução
       const target = Math.atan2(mx, mz);
       let diff = target - player.rotation.y;
       while (diff > Math.PI) diff -= Math.PI*2;
@@ -2228,6 +2992,7 @@ function animate() {
     } else {
       walkPhase *= .8;
       lastStepBucket = Math.floor(walkPhase / Math.PI);
+      if (ufo.ativo) ufo.paradoT += dt;       // parado durante invasão → risco de abdução
     }
 
     // --- Pulo / gravidade ---
@@ -2264,15 +3029,28 @@ function animate() {
     }
     if (state.attackCd > 0) state.attackCd -= dt;
 
-    playerGlow.emissiveIntensity = 1.4 + Math.sin(t*6) * .4;
+    playerGlow.emissiveIntensity = 1.8 + Math.sin(t*6) * .5;
+    if (playerLight) { playerLight.color.copy(playerGlow.color); playerLight.intensity = .7 + Math.sin(t*6) * .2; }
 
     if (state.invuln > 0) {
       state.invuln -= dt;
-      player.visible = Math.sin(t*30) > -0.3;
+      player.visible = Math.sin(t*22) > -0.2;       // pisca visível indicando imunidade
       if (state.invuln <= 0) player.visible = true;
     }
 
     // --- Esqueletos ---
+    // --- Festival do Infinity: perto do palco com monstros = festa! ---
+    const distPalco = Math.hypot(player.position.x - PALCO.x, player.position.z - PALCO.z);
+    const pertodoPalco = distPalco < 16;
+    const temMonstros = enemies.some(e => e.dying <= 0);
+    const festaRolando = pertodoPalco && temMonstros && !ufo.ativo;
+    if (festaRolando && !festivalAtivo) { startFestivalMusic(); showMsg('🎸 FESTIVAL INFINITY!'); }
+    if (!festaRolando && festivalAtivo) { stopFestivalMusic(); }
+    // luzes de palco piscam coloridas durante a festa
+    for (let li = 0; li < palcoLuzes.length; li++) {
+      palcoLuzes[li].intensity = festaRolando ? (1.5 + Math.sin(t*8 + li*1.3) * 1.5) : 0;
+    }
+
     let alive = 0;
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
@@ -2285,6 +3063,14 @@ function animate() {
         continue;
       }
       alive++;
+      // FESTIVAL: perto do palco, os monstros dançam em vez de atacar
+      if (festaRolando) {
+        e.mesh.position.y = Math.abs(Math.sin(t*6 + e.bobSeed)) * .4;       // pula no ritmo
+        e.mesh.rotation.y += dt * 2.5;                                       // gira dançando
+        e.mesh.rotation.z = Math.sin(t*5 + e.bobSeed) * .2;                  // ginga
+        continue;                                                            // não persegue nem ataca
+      }
+      e.mesh.rotation.z = 0;
       const to = player.position.clone().sub(e.mesh.position); to.y = 0;
       const dist = to.length();
       const reach = e.elite ? 2.3 : 1.15;
@@ -2312,12 +3098,18 @@ function animate() {
       e.mesh.position.y = e.ghost
         ? .35 + Math.sin(t*4 + e.bobSeed) * .2
         : Math.abs(Math.sin(t*8 + e.bobSeed)) * (e.elite ? .06 : .12);
+      if (e.elite && e.mesh.userData.bossLight) {
+        e.mesh.userData.bossLight.intensity = 1 + Math.sin(t*5) * .6;   // luz vermelha pulsante
+      }
       e.atkCd -= dt;
       if (dist < (e.elite ? 2.6 : 1.5) && e.atkCd <= 0 && player.position.y < .9) {
         e.atkCd = e.elite ? 1.6 : 1.2;
         damagePlayer(e.dmg);
       }
     }
+
+    // contador de monstros vivos no mapa
+    document.getElementById('aliveLabel').textContent = alive > 0 ? '👾 ' + alive + ' no mapa' : '';
 
     // --- Açaí ---
     acaiTimer -= dt;
@@ -2352,6 +3144,36 @@ function animate() {
     if (state.power > 0 && state.powerType === 'minigun') {
       minigunCd -= dt;
       if (minigunCd <= 0) { minigunCd = .09; fireMinigun(); }
+    }
+
+    // --- Tiros de arco-íris (unicórnio) ---
+    for (let i = rainbowShots.length - 1; i >= 0; i--) {
+      const rs = rainbowShots[i];
+      rs.mesh.position.addScaledVector(rs.dir, 16 * dt);
+      rs.mesh.rotation.y += dt * 8;
+      rs.vida -= dt;
+      // trilha de cor mudando
+      rs.mesh.material.color.setHex(RAINBOW_CORES[Math.floor((t*10 + i) % RAINBOW_CORES.length)]);
+      let acertou = false;
+      for (const e of enemies) {
+        if (e.dying > 0) continue;
+        // distância horizontal (ignora altura — o projétil voa a 1.6 e o inimigo varia de y)
+        const ddx = rs.mesh.position.x - e.mesh.position.x;
+        const ddz = rs.mesh.position.z - e.mesh.position.z;
+        const alvoR = e.elite ? 2.4 : 1.4;
+        if (Math.hypot(ddx, ddz) < alvoR) {
+          const dir = e.mesh.position.clone().sub(player.position); dir.y = 0; dir.normalize();
+          hurtEnemy(e, rs.dano, dir, 1.2);
+          acertou = true; break;
+        }
+      }
+      // acerta a nave pousada
+      if (!acertou && ufo.ativo && ufo.pousada && ufo.mesh) {
+        const ux = rs.mesh.position.x - ufo.mesh.position.x;
+        const uz = rs.mesh.position.z - ufo.mesh.position.z;
+        if (Math.hypot(ux, uz) < 3.5) { hitUfo(rs.dano); acertou = true; }
+      }
+      if (acertou || rs.vida <= 0) { scene.remove(rs.mesh); rainbowShots.splice(i, 1); }
     }
 
     // --- Bombas em arco ---
@@ -2416,11 +3238,30 @@ function animate() {
       h.position.y = .6 + Math.sin(t*4 + i) * .08;
       h.userData.ttl -= dt;
       const dh = Math.hypot(h.position.x - player.position.x, h.position.z - player.position.z);
-      if (dh < 1.2 && state.hp < MAX_HP) {
+      if (dh < 1.2 && state.hp < MAX_HP + upgrades.vidaExtra) {
         state.hp++; updateHearts(); sfx('heal');
         scene.remove(h); heartDrops.splice(i, 1);
       } else if (h.userData.ttl <= 0) {
         scene.remove(h); heartDrops.splice(i, 1);
+      }
+    }
+
+    // --- Upgrades dropados (Gigante) ---
+    for (let i = upgradeDrops.length - 1; i >= 0; i--) {
+      const u = upgradeDrops[i];
+      u.children[0].rotation.y += dt * 2.5;
+      u.children[0].rotation.x += dt * 1.5;
+      u.children[0].position.y = 1 + Math.sin(t*3 + i) * .12;
+      u.children[1].rotation.z += dt * 1.5;
+      u.userData.ttl -= dt;
+      const du = Math.hypot(u.position.x - player.position.x, u.position.z - player.position.z);
+      if (du < 1.3) {
+        u.userData.reward.aplica();
+        showMsg('🎁 ' + u.userData.reward.nome + '!');
+        sfx('aura');
+        scene.remove(u); upgradeDrops.splice(i, 1);
+      } else if (u.userData.ttl <= 0) {
+        scene.remove(u); upgradeDrops.splice(i, 1);
       }
     }
 
@@ -2463,12 +3304,105 @@ function animate() {
     );
 
     // --- Próxima onda ---
-    if (alive === 0 && enemies.length === 0 && state.wave > 0 && !state._waveQueued) {
+    if (alive === 0 && enemies.length === 0 && state.wave > 0 && !state._waveQueued && !ufo.ativo) {
       state._waveQueued = true;
       setTimeout(() => {
         state._waveQueued = false;
         if (state.playing && enemies.length === 0) startWave();
       }, 1800);
+    }
+
+    // --- Nave alienígena (evento noturno) ---
+    if (ufo.ativo && ufo.mesh) {
+      ufo.tempoEvento += dt;
+      if (ufo.tempoEvento > 45) { fimAlienEvent(); }   // tempo esgotou → nave vai embora
+    }
+    if (ufo.ativo && ufo.mesh) {
+      ufo.estadoT -= dt;
+      ufo.mesh.rotation.y += dt * (ufo.pousada ? .2 : .5);
+      ufo.mesh.userData.luzes.forEach((l, i) => {
+        l.material.color.setHex((Math.sin(t*6 + i) > 0) ? 0xffe14d : 0xff4444);
+      });
+
+      if (ufo.estado === 'patrulha') {
+        // voa alto e intocável
+        const d = ufo.alvo.clone().sub(ufo.mesh.position); d.y = 0;
+        if (d.length() < 2) novoAlvoUfo();
+        else { d.normalize(); ufo.mesh.position.addScaledVector(d, 2.6 * dt); }
+        ufo.y = 11 + Math.sin(t * 1.5) * .4;
+        ufo.pousada = false;
+        if (ufo.estadoT <= 0) {                  // hora de pousar
+          ufo.estado = 'pousando';
+          ufo.alvo.set(player.position.x + rand(-6, 6), 0, player.position.z + rand(-6, 6));
+          clampToArena(ufo.alvo);
+          if (!ufo.avisouPouso) { ufo.avisouPouso = true; showMsg('🛸 A NAVE VAI POUSAR!'); }
+        }
+      } else if (ufo.estado === 'pousando') {
+        // move para o ponto de pouso e desce
+        const d = ufo.alvo.clone().sub(ufo.mesh.position); d.y = 0;
+        if (d.length() > .5) { d.normalize(); ufo.mesh.position.addScaledVector(d, 3 * dt); }
+        ufo.y += (2.4 - ufo.y) * Math.min(dt * 1.5, 1);
+        if (ufo.y < 3) {
+          ufo.estado = 'pousada'; ufo.estadoT = 5; ufo.pousada = true;
+          ufo.spawnCd = 0;
+          addShake(.3);
+          if (!ufo.avisouAtaque) { ufo.avisouAtaque = true; showMsg('⚔️ ATAQUE A NAVE QUANDO POUSAR!'); }
+        }
+      } else if (ufo.estado === 'pousada') {
+        ufo.y = 2.4;
+        ufo.pousada = true;
+        // gera aliens enquanto pousada
+        ufo.spawnCd -= dt;
+        if (ufo.spawnCd <= 0) {
+          ufo.spawnCd = 1.6;
+          const n = 1 + Math.floor(state.wave / 6);
+          for (let k = 0; k < n; k++) {
+            const ap = ufo.mesh.position.clone();
+            ap.x += rand(-2.5, 2.5); ap.z += rand(-2.5, 2.5); ap.y = 0;
+            spawnMonster(2.4, 'alien', ap);
+          }
+        }
+        if (ufo.estadoT <= 0) {                  // decola de novo
+          ufo.estado = 'decolando';
+        }
+      } else if (ufo.estado === 'decolando') {
+        ufo.y += (11 - ufo.y) * Math.min(dt * 1.2, 1);
+        ufo.pousada = false;
+        if (ufo.y > 10.5) {
+          ufo.estado = 'patrulha'; ufo.estadoT = rand(5, 8);
+          novoAlvoUfo();
+        }
+      }
+
+      ufo.mesh.position.y = ufo.y;
+      // barra de vida só aparece quando pousada (vulnerável)
+      ufo.barFg.visible = ufo.pousada;
+      ufo.barBg.visible = ufo.pousada;
+
+      // aura/anel de "vulnerável" no chão quando pousada
+      // feixe de abdução só durante patrulha (parado > 3s)
+      const px = player.position.x, pz = player.position.z;
+      const sobOndaNave = Math.hypot(px - ufo.mesh.position.x, pz - ufo.mesh.position.z);
+      ufo.abduzindo = (!ufo.pousada && ufo.estado === 'patrulha' && ufo.paradoT > 3);
+      if (ufo.abduzindo) ufo.alvo.set(px, 11, pz);
+
+      ufo.beam.position.set(ufo.mesh.position.x, 5.5, ufo.mesh.position.z);
+      if (ufo.abduzindo) {
+        ufo.beam.material.opacity = .35 + Math.sin(t*12) * .12;
+        if (sobOndaNave < 2.6) {
+          ufo._dmgAcc = (ufo._dmgAcc || 0) + dt;
+          if (ufo._dmgAcc >= 1) {
+            ufo._dmgAcc -= 1;
+            if (state.deus <= 0) { state.hp = Math.max(0, state.hp - 1); updateHearts(); sfx('hurt'); if (state.hp <= 0) endGame(); }
+          }
+        }
+      } else {
+        ufo.beam.material.opacity = Math.max(0, ufo.beam.material.opacity - dt*2);
+        ufo._dmgAcc = 0;
+      }
+
+      // tom da cúpula muda quando vulnerável (pousada = avermelhada)
+      ufo.mesh.children[1].material.emissive.setHex(ufo.pousada ? 0xff5544 : 0x22d3ee);
     }
 
     drawMinimap();
