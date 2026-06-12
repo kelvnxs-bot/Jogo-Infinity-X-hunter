@@ -2301,11 +2301,13 @@ const bandMusic = document.getElementById('bandMusic');
 function startFestivalMusic() {
   if (festivalAtivo || muted) return;
   festivalAtivo = true;
-  // se a música já tinha acabado, recomeça; senão continua de onde parou
   try {
-    if (bandMusic.ended || bandMusic.currentTime >= bandMusic.duration - .1) bandMusic.currentTime = 0;
+    // se acabou ou ainda não começou, toca do início; senão continua de onde parou
+    if (bandMusic.ended || !isFinite(bandMusic.currentTime)) bandMusic.currentTime = 0;
+    bandMusic.muted = false;
     bandMusic.volume = .6;
-    bandMusic.play();
+    const p = bandMusic.play();
+    if (p && p.catch) p.catch(() => {});   // ignora rejeição de autoplay
   } catch (e) {}
 }
 function stopFestivalMusic() {
@@ -2318,7 +2320,13 @@ function stopFestivalMusic() {
 const alienMusic = document.getElementById('alienMusic');
 function startAlienMusic() {
   if (muted) return;
-  try { alienMusic.volume = .5; alienMusic.currentTime = 0; alienMusic.play(); } catch (e) {}
+  try {
+    alienMusic.muted = false;
+    alienMusic.volume = muted ? 0 : .5;
+    alienMusic.currentTime = 0;
+    const p = alienMusic.play();
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
 }
 function stopAlienMusic() {
   try { alienMusic.pause(); } catch (e) {}
@@ -2877,6 +2885,18 @@ function startGame() {
   startMusic();
   document.getElementById('sndBtn').style.display = 'block';
 
+  // desbloqueia os MP3 no celular: o navegador só libera áudio após um toque,
+  // então damos play+pause silencioso aqui (que roda no clique de "JOGAR")
+  [bandMusic, alienMusic].forEach(a => {
+    if (!a) return;
+    try {
+      a.muted = true;
+      const p = a.play();
+      if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+      else { a.pause(); a.currentTime = 0; a.muted = false; }
+    } catch (e) { a.muted = false; }
+  });
+
   enemies.forEach(e => scene.remove(e.mesh)); enemies = [];
   acais.forEach(a => scene.remove(a)); acais = [];
   heartDrops.forEach(h => scene.remove(h)); heartDrops = [];
@@ -3084,6 +3104,10 @@ function animate() {
     if (festivalAtivo && bandMusic.ended) { stopFestivalMusic(); }
     // saiu do palco? pausa a festa (a música guarda a posição p/ continuar depois)
     if (festivalAtivo && !noPalco) { stopFestivalMusic(); }
+    // matou todos os monstros? a festa acaba
+    if (festivalAtivo && !temMonstros) { stopFestivalMusic(); }
+    // começou invasão alienígena? para a festa
+    if (festivalAtivo && ufo.ativo) { stopFestivalMusic(); }
     // música pausada no meio = continuação (sempre permitida); festa NOVA só 1ª vez ou onda 5+
     const festaPausadaNoMeio = !bandMusic.ended && bandMusic.currentTime > 0.1;
     const podeAtivarFesta = festaPausadaNoMeio || !festivalJaUsado || state.wave >= 5;
