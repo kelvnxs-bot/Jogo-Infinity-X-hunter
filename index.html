@@ -170,7 +170,7 @@
 <div id="bigMsg"></div>
 
 <div id="msg"></div>
-<div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 60px); left:16px; z-index:11; display:none; padding:5px 11px; border-radius:20px; background:rgba(8,12,24,.7); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,209,102,.45); white-space:nowrap; pointer-events:none; font-size:12px; font-weight:700; color:#ffd166; letter-spacing:.3px;"></div>
+<div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 152px); left:16px; z-index:11; display:none; padding:5px 11px; border-radius:20px; background:rgba(8,12,24,.7); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,209,102,.45); white-space:nowrap; pointer-events:none; font-size:12px; font-weight:700; color:#ffd166; letter-spacing:.3px;"></div>
 <div id="dmg"></div>
 <canvas id="minimap" width="220" height="220"></canvas>
 
@@ -225,11 +225,11 @@ const POWER_TIME = 10;       // duração do poder do açaí (s)
 const PLAYER_SPEED = 7;
 
 const POWERS = {
-  corte:     { nome:'CORTE DO INFINITO',   cor:0xb26bff, css:'#b26bff' },
-  martelo:   { nome:'MARTELO DIMENSIONAL', cor:0xff9f1c, css:'#ff9f1c' },
-  laser:     { nome:'RAIO LASER',          cor:0xff3b5c, css:'#ff3b5c' },
-  minigun:   { nome:'MINIGUN',             cor:0xffe14d, css:'#ffe14d', raro:true },
-  explosivo: { nome:'BOMBAS EXPLOSIVAS',   cor:0x84cc16, css:'#84cc16', raro:true },
+  corte:     { nome:'CORTE DO INFINITO',   cor:0xc94fff, css:'#c94fff' },
+  martelo:   { nome:'MARTELO DIMENSIONAL', cor:0xff8800, css:'#ff8800' },
+  laser:     { nome:'RAIO LASER',          cor:0xff1744, css:'#ff1744' },
+  minigun:   { nome:'MINIGUN',             cor:0xffea00, css:'#ffea00', raro:true },
+  explosivo: { nome:'BOMBAS EXPLOSIVAS',   cor:0x00e676, css:'#00e676', raro:true },
 };
 const POWERS_COMUNS = ['corte', 'martelo', 'laser'];
 const POWERS_RAROS  = ['minigun', 'explosivo'];
@@ -1972,8 +1972,9 @@ function spawnAcai(atPos) {
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(.3, .22, .5, 12),
     new THREE.MeshStandardMaterial({ color:0xf2eef8, roughness:.4 }));
   cup.position.y = .3; cup.castShadow = true; g.add(cup);
+  // creme com a COR DO PODER (forte e brilhante) para diferenciar cada açaí
   const creme = new THREE.Mesh(new THREE.SphereGeometry(.28, 12, 10),
-    new THREE.MeshStandardMaterial({ color:0x4b2070, roughness:.45 }));
+    new THREE.MeshStandardMaterial({ color:P.cor, emissive:P.cor, emissiveIntensity:.55, roughness:.4 }));
   creme.position.y = .58; creme.scale.y = .65; g.add(creme);
   const straw = new THREE.Mesh(new THREE.CylinderGeometry(.035, .035, .55, 6),
     new THREE.MeshStandardMaterial({ color:0x57c4ad, roughness:.6 }));
@@ -1990,6 +1991,9 @@ function spawnAcai(atPos) {
   const ring = new THREE.Mesh(new THREE.RingGeometry(.55, .7, 22),
     new THREE.MeshBasicMaterial({ color:P.cor, side:THREE.DoubleSide, transparent:true, opacity:.85 }));
   ring.rotation.x = -Math.PI/2; ring.position.y = .04; g.add(ring);
+  // luz na cor do poder: o açaí brilha e se destaca no chão
+  const luz = new THREE.PointLight(P.cor, P.raro ? 1.2 : .8, 6, 2);
+  luz.position.y = .8; g.add(luz);
 
   g.position.copy(atPos || spawnPosNearPlayer(8, 20));
   g.userData.type = type;
@@ -2606,7 +2610,7 @@ function hurtEnemy(e, dmg, dir, kb) {
       addShake(.4);                                                  // gigante desabando
       spawnHeart(e.mesh.position);                                   // gigante sempre dropa coração
       spawnUpgrade(e.mesh.position.clone());                         // e um upgrade permanente!
-    } else if (Math.random() < .3) {
+    } else if (Math.random() < .12) {
       spawnHeart(e.mesh.position);
     }
   } else {
