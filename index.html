@@ -40,9 +40,10 @@
 
   /* ---------- Mensagem central ---------- */
   #msg { position:fixed; top:38%; left:50%; transform:translate(-50%,-50%); z-index:11;
-    font-size:clamp(26px, 6.5vw, 50px); font-weight:900; letter-spacing:5px; color:#ffd166;
+    font-size:clamp(22px, 5.5vw, 46px); font-weight:900; letter-spacing:3px; color:#ffd166;
     text-shadow:0 0 30px rgba(255,209,102,.8), 0 4px 0 rgba(0,0,0,.4);
-    opacity:0; pointer-events:none; transition:opacity .35s; text-align:center; }
+    opacity:0; pointer-events:none; transition:opacity .35s; text-align:center;
+    width:92vw; max-width:600px; line-height:1.15; word-wrap:break-word; }
 
   /* ---------- Dano (flash vermelho) ---------- */
   #dmg { position:fixed; inset:0; background:radial-gradient(circle, transparent 40%, rgba(255,0,40,.45) 100%);
@@ -147,7 +148,8 @@
 <button id="atkBtn">⚔️</button>
 <button id="jmpBtn">↑</button>
 <button id="sndBtn">🔊</button>
-<audio id="bandMusic" src="infinity.mp3" loop preload="auto"></audio>
+<audio id="bandMusic" src="infinity.mp3" preload="auto"></audio>
+<audio id="alienMusic" src="alien_theme.mp3" loop preload="auto"></audio>
 
 <div class="screen" id="startScreen">
   <div class="sword-emoji">⚔️</div>
@@ -589,6 +591,8 @@ function buildCity() {
     if (Math.hypot(px - 32, pz - 16) < 9) continue;                    // feira
     if (Math.hypot(px + 30, pz - 26) < 10) continue;                   // parquinho
     if (Math.hypot(px - 10, pz + 42) < 13) continue;                   // lago
+    if (Math.hypot(px - 30, pz + 30) < 13) continue;                   // palco do festival
+    if (Math.hypot(px + 34, pz - 4) < 9) continue;                     // buteco
     if (Math.hypot(px, pz) < 5) continue;                              // fonte
     tree(kinds[placed % kinds.length], px, pz);
     placed++;
@@ -1020,20 +1024,29 @@ function buildPalco() {
   const tablado = new THREE.Mesh(new THREE.BoxGeometry(9, .8, 6),
     new THREE.MeshStandardMaterial({ color:0x2a2a33, roughness:.7 }));
   tablado.position.set(PX, .4, PZ); tablado.castShadow = true; tablado.receiveShadow = true; scene.add(tablado);
-  obstacles.push({ rect:true, x:PX, z:PZ, hw:4.5, hd:3 });
+  // sem colisão no tablado: o jogador precisa poder subir no palco
 
   // fundo do palco (telão)
-  const telao = new THREE.Mesh(new THREE.BoxGeometry(9, 5, .3),
+  const telao = new THREE.Mesh(new THREE.BoxGeometry(9, 6, .3),
     new THREE.MeshStandardMaterial({ color:0x0a0a14, emissive:0x1a0a2e, emissiveIntensity:.4, roughness:.5 }));
-  telao.position.set(PX, 3.3, PZ - 3); telao.castShadow = true; scene.add(telao);
-  // letreiro INFINITY no telão
+  telao.position.set(PX, 3.8, PZ - 3); telao.castShadow = true; scene.add(telao);
+
+  // FOTO DA BANDA INFINITY no telão (carregada de arquivo separado)
+  try {
+    const loader = new THREE.TextureLoader();
+    loader.load('infinity_banda.jpg', (tex) => {
+      if ('colorSpace' in tex && THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+      else if ('encoding' in tex && THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+      const fotoMat = new THREE.MeshBasicMaterial({ map: tex });
+      const foto = new THREE.Mesh(new THREE.PlaneGeometry(7.6, 3.76), fotoMat);
+      foto.position.set(PX, 3.3, PZ - 2.83); scene.add(foto);
+    });
+  } catch (e) {}
+
+  // letreiro INFINITY no topo do telão
   const letreiro = makeSign('INFINITY', '#0a0a14', '#ff4fc3');
-  letreiro.scale.set(1.6, 1.6, 1.6);
-  letreiro.position.set(PX, 3.8, PZ - 2.82); scene.add(letreiro);
-  // símbolo ∞ embaixo
-  const simb = makeSign('∞ ∞ ∞', '#0a0a14', '#22d3ee');
-  simb.scale.set(1.2, 1.2, 1.2);
-  simb.position.set(PX, 2.3, PZ - 2.82); scene.add(simb);
+  letreiro.scale.set(1.5, 1.5, 1.5);
+  letreiro.position.set(PX, 5.9, PZ - 2.82); scene.add(letreiro);
 
   // caixas de som
   [-3.8, 3.8].forEach(ox => {
@@ -1161,7 +1174,7 @@ function buildScatter() {
     if (Math.hypot(x + 30, z - 26) < 10) return true;            // parquinho
     if (Math.hypot(x - 10, z + 42) < 13) return true;            // lago
     if (Math.hypot(x + 34, z - 4) < 9) return true;              // buteco
-    if (Math.hypot(x - 30, z + 30) < 9) return true;             // palco
+    if (Math.hypot(x - 30, z + 30) < 13) return true;            // palco (área ampla)
     return false;
   };
 
@@ -1822,8 +1835,9 @@ function startAlienEvent() {
   ufo.barFg = fg; ufo.barBg = bg;
   bg.visible = false; fg.visible = false;
 
-  showMsg('⚠ CONTATO EXTRATERRESTRE ⚠');
+  showMsg('⚠ CONTATO ALIENÍGENA ⚠');
   if (typeof sfx === 'function') sfx('ufo');
+  startAlienMusic();
 }
 
 function novoAlvoUfo() {
@@ -1843,6 +1857,7 @@ function fimAlienEvent() {
   if (ufo.beam) scene.remove(ufo.beam);
   ufo.mesh = null; ufo.beam = null; ufo.ativo = false;
   for (const e of enemies) if (e.kind === 'alien' && e.dying <= 0) { e.hp = 0; e.dying = .6; }
+  stopAlienMusic();
   showMsg('🛸 A NAVE FUGIU...');
   voltarParaDia();
 }
@@ -1881,6 +1896,7 @@ function destroyUfo() {
 
   // mata os aliens restantes e termina o evento
   for (const e of enemies) if (e.kind === 'alien' && e.dying <= 0) { e.hp = 0; e.dying = .6; }
+  stopAlienMusic();
   showMsg('🛸 NAVE DESTRUÍDA! +5 AURA');
   voltarParaDia();
 }
@@ -2077,7 +2093,7 @@ function triggerSupremo(tier) {
       novaSuprema(16, 25, 0xffd166);
       state.deus = 10;                                 // MODO DEUS
       deusTick = .5;
-      showMsg('😇 ANJO CAÍDO — IMUNE 10s');
+      showMsg('😇 ANJO CAÍDO · IMUNE');
     }
   }, palavras.length * 900 - 100);
 }
@@ -2280,16 +2296,32 @@ function initAudio() {
 
 // ---------- Música do festival (banda Infinity) ----------
 let festivalAtivo = false;
+let festivalJaUsado = false;      // controla: 1ª vez livre, depois só onda 5+
 const bandMusic = document.getElementById('bandMusic');
 function startFestivalMusic() {
   if (festivalAtivo || muted) return;
   festivalAtivo = true;
-  try { bandMusic.volume = .6; bandMusic.currentTime = 0; bandMusic.play(); } catch (e) {}
+  // se a música já tinha acabado, recomeça; senão continua de onde parou
+  try {
+    if (bandMusic.ended || bandMusic.currentTime >= bandMusic.duration - .1) bandMusic.currentTime = 0;
+    bandMusic.volume = .6;
+    bandMusic.play();
+  } catch (e) {}
 }
 function stopFestivalMusic() {
   if (!festivalAtivo) return;
   festivalAtivo = false;
-  try { bandMusic.pause(); } catch (e) {}
+  try { bandMusic.pause(); } catch (e) {}   // pause mantém a posição atual
+}
+
+// ---------- Música do evento alienígena ----------
+const alienMusic = document.getElementById('alienMusic');
+function startAlienMusic() {
+  if (muted) return;
+  try { alienMusic.volume = .5; alienMusic.currentTime = 0; alienMusic.play(); } catch (e) {}
+}
+function stopAlienMusic() {
+  try { alienMusic.pause(); } catch (e) {}
 }
 
 function playNoise(dur, freq, vol, filterType = 'lowpass', when = 0) {
@@ -2354,6 +2386,7 @@ function toggleSound() {
   muted = !muted;
   if (masterGain) masterGain.gain.value = muted ? 0 : 1;
   if (bandMusic) bandMusic.volume = muted ? 0 : .6;
+  if (alienMusic) alienMusic.volume = muted ? 0 : .5;
   document.getElementById('sndBtn').textContent = muted ? '🔇' : '🔊';
 }
 
@@ -2663,6 +2696,7 @@ function endGame() {
   state.gameOver = true;
   stopMusic();
   stopFestivalMusic();
+  stopAlienMusic();
   const score = state.kills * 10 + state.wave * 100;
   document.getElementById('finalStats').innerHTML =
     `Monstros derrotados: <b>${state.kills}</b> &nbsp;·&nbsp; Onda: <b>${state.wave}</b><br>Pontuação: <b>${score}</b>`;
@@ -2854,6 +2888,9 @@ function startGame() {
   if (quest.caixas) quest.caixas.forEach(c => scene.remove(c));
   quest.ativa = false; quest.caixas = []; quest.pegas = 0; quest.cooldown = 6; quest.vezes = 0;
   stopFestivalMusic();
+  festivalJaUsado = false;
+  try { bandMusic.currentTime = 0; } catch (e) {}
+  stopAlienMusic();
   document.getElementById('questBanner').style.display = 'none';
   ehNoite = false; luzAlvo = Object.assign({}, DIA); luzAtual = Object.assign({}, DIA);
   if (ufo.mesh) scene.remove(ufo.mesh);
@@ -3039,19 +3076,32 @@ function animate() {
     }
 
     // --- Esqueletos ---
-    // --- Festival do Infinity: perto do palco com monstros = festa! ---
+    // --- Festival do Infinity: SUBIR no palco ativa a festa ---
     const distPalco = Math.hypot(player.position.x - PALCO.x, player.position.z - PALCO.z);
-    const pertodoPalco = distPalco < 16;
+    const noPalco = distPalco < 5;                       // tem que estar em cima do tablado
     const temMonstros = enemies.some(e => e.dying <= 0);
-    const festaRolando = pertodoPalco && temMonstros && !ufo.ativo;
-    if (festaRolando && !festivalAtivo) { startFestivalMusic(); showMsg('🎸 FESTIVAL INFINITY!'); }
-    if (!festaRolando && festivalAtivo) { stopFestivalMusic(); }
+    // música acabou? festa termina de vez
+    if (festivalAtivo && bandMusic.ended) { stopFestivalMusic(); }
+    // saiu do palco? pausa a festa (a música guarda a posição p/ continuar depois)
+    if (festivalAtivo && !noPalco) { stopFestivalMusic(); }
+    // música pausada no meio = continuação (sempre permitida); festa NOVA só 1ª vez ou onda 5+
+    const festaPausadaNoMeio = !bandMusic.ended && bandMusic.currentTime > 0.1;
+    const podeAtivarFesta = festaPausadaNoMeio || !festivalJaUsado || state.wave >= 5;
+    if (noPalco && temMonstros && !ufo.ativo && !bandMusic.ended && podeAtivarFesta) {
+      if (!festivalAtivo) {
+        startFestivalMusic();
+        festivalJaUsado = true;
+        if (!festaPausadaNoMeio) showMsg('🎸 FESTIVAL INFINITY!');
+      }
+    }
+    const festaRolando = festivalAtivo;
     // luzes de palco piscam coloridas durante a festa
     for (let li = 0; li < palcoLuzes.length; li++) {
       palcoLuzes[li].intensity = festaRolando ? (1.5 + Math.sin(t*8 + li*1.3) * 1.5) : 0;
     }
 
     let alive = 0;
+    let dancando = 0;
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       if (e.dying > 0) {
@@ -3063,13 +3113,35 @@ function animate() {
         continue;
       }
       alive++;
-      // FESTIVAL: perto do palco, os monstros dançam em vez de atacar
+      // FESTIVAL: monstros vão para a frente do palco e dançam em fila
       if (festaRolando) {
-        e.mesh.position.y = Math.abs(Math.sin(t*6 + e.bobSeed)) * .4;       // pula no ritmo
-        e.mesh.rotation.y += dt * 2.5;                                       // gira dançando
-        e.mesh.rotation.z = Math.sin(t*5 + e.bobSeed) * .2;                  // ginga
+        // posição de dança em frente ao palco (em grade), atribuída uma vez
+        if (e.dancePos === undefined) {
+          const col = dancando % 6, row = Math.floor(dancando / 6);
+          e.dancePos = new THREE.Vector3(
+            PALCO.x - 5 + col * 2,
+            0,
+            PALCO.z + 4 + row * 2
+          );
+        }
+        dancando++;
+        // anda até a posição de dança
+        const dd = e.dancePos.clone().sub(e.mesh.position); dd.y = 0;
+        if (dd.length() > .4) {
+          dd.normalize();
+          e.mesh.position.x += dd.x * e.speed * 1.4 * dt;
+          e.mesh.position.z += dd.z * e.speed * 1.4 * dt;
+          e.mesh.position.y = Math.abs(Math.sin(t*8 + e.bobSeed)) * .12;
+          e.mesh.lookAt(PALCO.x, 0, PALCO.z - 3);
+        } else {
+          // chegou: dança virado para o palco
+          e.mesh.position.y = Math.abs(Math.sin(t*6 + e.bobSeed)) * .4;       // pula no ritmo
+          e.mesh.rotation.z = Math.sin(t*5 + e.bobSeed) * .25;                // ginga
+          e.mesh.lookAt(PALCO.x, 1, PALCO.z - 3);
+        }
         continue;                                                            // não persegue nem ataca
       }
+      e.dancePos = undefined;                                                // reseta ao fim da festa
       e.mesh.rotation.z = 0;
       const to = player.position.clone().sub(e.mesh.position); to.y = 0;
       const dist = to.length();
@@ -3315,7 +3387,7 @@ function animate() {
     // --- Nave alienígena (evento noturno) ---
     if (ufo.ativo && ufo.mesh) {
       ufo.tempoEvento += dt;
-      if (ufo.tempoEvento > 45) { fimAlienEvent(); }   // tempo esgotou → nave vai embora
+      if (ufo.tempoEvento > 60) { fimAlienEvent(); }   // 1 minuto: tempo esgotou → nave vai embora
     }
     if (ufo.ativo && ufo.mesh) {
       ufo.estadoT -= dt;
@@ -3346,7 +3418,7 @@ function animate() {
           ufo.estado = 'pousada'; ufo.estadoT = 5; ufo.pousada = true;
           ufo.spawnCd = 0;
           addShake(.3);
-          if (!ufo.avisouAtaque) { ufo.avisouAtaque = true; showMsg('⚔️ ATAQUE A NAVE QUANDO POUSAR!'); }
+          if (!ufo.avisouAtaque) { ufo.avisouAtaque = true; showMsg('⚔️ ATAQUE QUANDO POUSAR!'); }
         }
       } else if (ufo.estado === 'pousada') {
         ufo.y = 2.4;
