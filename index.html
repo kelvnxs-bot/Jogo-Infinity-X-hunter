@@ -68,16 +68,46 @@
     color:#fff; font-size:28px; display:none; z-index:12;
     box-shadow:0 0 20px rgba(87,196,173,.35); }
   #jmpBtn:active { background:rgba(87,196,173,.5); transform:scale(.93); }
-  #sndBtn { position:fixed; left:16px; top:calc(max(12px, env(safe-area-inset-top)) + 56px);
-    width:36px; height:36px; border-radius:50%; border:1px solid rgba(178,107,255,.4);
-    background:rgba(8,12,24,.55); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-    color:#fff; font-size:16px; display:none; z-index:13; }
-  #sndBtn:active { transform:scale(.92); }
+  #sndBtn { display:none !important; }
 
   /* ---------- Telas ---------- */
   .screen { position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
     align-items:center; justify-content:center; text-align:center; padding:24px;
+    overflow-y:auto; -webkit-overflow-scrolling:touch;
     background:radial-gradient(ellipse at 50% 30%, #16203d 0%, #070a14 75%); }
+  /* quando a tela é baixa (celular deitado), alinha ao topo e permite rolar */
+  @media (max-height:560px) {
+    .screen { justify-content:flex-start; padding:14px 24px 28px; }
+    #startScreen { display:flex; flex-direction:column; }
+    .title { font-size:clamp(24px,6vw,40px) !important; margin-top:4px; order:1; }
+    .subtitle { display:none; }
+    .powers-list { display:none; }
+    .sword-emoji { font-size:26px !important; margin-bottom:2px !important; order:0; }
+    .skins-label { margin-top:10px !important; order:2; }
+    .skins-row { margin-top:8px !important; order:3; }
+    .nick-label { margin-top:10px !important; order:4; }
+    #nickInput { order:5; }
+    .controls-hint { display:none; }
+    /* botão COMEÇAR fica logo após o nick, sempre visível sem rolar muito */
+    .btn { margin-top:14px !important; order:6; }
+    #homeRank { margin-top:14px !important; order:7; }
+  }
+  /* paisagem muito baixa: deixa ainda mais enxuto */
+  @media (max-height:430px) {
+    .screen { justify-content:flex-start; padding:10px 20px 80px; }
+    .sword-emoji { display:none; }
+    .title { font-size:22px !important; margin-top:2px; }
+    .skins-label { margin-top:8px !important; font-size:10px !important; }
+    .skins-row { margin-top:6px !important; }
+    .skin-btn { padding:7px 12px !important; font-size:12px !important; }
+    .nick-label { margin-top:8px !important; }
+    #homeRank { display:none; }
+    /* botão fixo no rodapé: sempre visível, não some ao deitar o celular */
+    #startScreen .btn {
+      position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+      margin:0 !important; z-index:25; padding:12px 40px !important;
+      box-shadow:0 4px 20px rgba(0,0,0,.5); }
+  }
   .title { font-size:clamp(34px, 9vw, 72px); font-weight:900; letter-spacing:4px; line-height:1.05;
     background:linear-gradient(95deg, #b26bff 20%, #7c4dff 55%, #ff3b5c 85%);
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
@@ -140,7 +170,7 @@
 <div id="bigMsg"></div>
 
 <div id="msg"></div>
-<div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 60px); left:62px; z-index:11; display:none; padding:5px 11px; border-radius:20px; background:rgba(8,12,24,.7); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,209,102,.45); white-space:nowrap; pointer-events:none; font-size:12px; font-weight:700; color:#ffd166; letter-spacing:.3px;"></div>
+<div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 60px); left:16px; z-index:11; display:none; padding:5px 11px; border-radius:20px; background:rgba(8,12,24,.7); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,209,102,.45); white-space:nowrap; pointer-events:none; font-size:12px; font-weight:700; color:#ffd166; letter-spacing:.3px;"></div>
 <div id="dmg"></div>
 <canvas id="minimap" width="220" height="220"></canvas>
 
@@ -2883,7 +2913,7 @@ document.getElementById('jmpBtn').addEventListener('touchstart', e => {
 function startGame() {
   initAudio();
   startMusic();
-  document.getElementById('sndBtn').style.display = 'block';
+  // botão de som removido por enquanto
 
   // desbloqueia os MP3 no celular: o navegador só libera áudio após um toque.
   // damos play e pausamos NA HORA (e de novo quando a Promise resolver) para
