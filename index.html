@@ -68,10 +68,10 @@
     color:#fff; font-size:28px; display:none; z-index:12;
     box-shadow:0 0 20px rgba(87,196,173,.35); }
   #jmpBtn:active { background:rgba(87,196,173,.5); transform:scale(.93); }
-  #sndBtn { position:fixed; right:16px; top:calc(max(12px, env(safe-area-inset-top)) + 206px);
-    width:38px; height:38px; border-radius:50%; border:1px solid rgba(178,107,255,.4);
+  #sndBtn { position:fixed; left:16px; top:calc(max(12px, env(safe-area-inset-top)) + 56px);
+    width:36px; height:36px; border-radius:50%; border:1px solid rgba(178,107,255,.4);
     background:rgba(8,12,24,.55); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-    color:#fff; font-size:17px; display:none; z-index:13; }
+    color:#fff; font-size:16px; display:none; z-index:13; }
   #sndBtn:active { transform:scale(.92); }
 
   /* ---------- Telas ---------- */
@@ -140,7 +140,7 @@
 <div id="bigMsg"></div>
 
 <div id="msg"></div>
-<div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 78px); left:16px; z-index:11; display:none; padding:5px 11px; border-radius:20px; background:rgba(8,12,24,.7); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,209,102,.45); white-space:nowrap; pointer-events:none; font-size:12px; font-weight:700; color:#ffd166; letter-spacing:.3px;"></div>
+<div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 60px); left:62px; z-index:11; display:none; padding:5px 11px; border-radius:20px; background:rgba(8,12,24,.7); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,209,102,.45); white-space:nowrap; pointer-events:none; font-size:12px; font-weight:700; color:#ffd166; letter-spacing:.3px;"></div>
 <div id="dmg"></div>
 <canvas id="minimap" width="220" height="220"></canvas>
 
@@ -2885,15 +2885,17 @@ function startGame() {
   startMusic();
   document.getElementById('sndBtn').style.display = 'block';
 
-  // desbloqueia os MP3 no celular: o navegador só libera áudio após um toque,
-  // então damos play+pause silencioso aqui (que roda no clique de "JOGAR")
+  // desbloqueia os MP3 no celular: o navegador só libera áudio após um toque.
+  // damos play e pausamos NA HORA (e de novo quando a Promise resolver) para
+  // garantir que nenhuma música fique tocando ao iniciar o jogo.
   [bandMusic, alienMusic].forEach(a => {
     if (!a) return;
     try {
       a.muted = true;
       const p = a.play();
-      if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
-      else { a.pause(); a.currentTime = 0; a.muted = false; }
+      const desligar = () => { a.pause(); a.currentTime = 0; a.muted = false; };
+      if (p && p.then) p.then(desligar).catch(() => { a.muted = false; });
+      desligar();   // pausa imediata também (caso play não retorne Promise)
     } catch (e) { a.muted = false; }
   });
 
@@ -3119,6 +3121,9 @@ function animate() {
       }
     }
     const festaRolando = festivalAtivo;
+    // trava de segurança: se a festa não está oficialmente ativa mas a música
+    // está tocando (ex.: vazou do desbloqueio), pausa na hora
+    if (!festivalAtivo && bandMusic && !bandMusic.paused) { try { bandMusic.pause(); } catch (e) {} }
     // luzes de palco piscam coloridas durante a festa
     for (let li = 0; li < palcoLuzes.length; li++) {
       palcoLuzes[li].intensity = festaRolando ? (1.5 + Math.sin(t*8 + li*1.3) * 1.5) : 0;
