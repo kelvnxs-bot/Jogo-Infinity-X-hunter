@@ -180,6 +180,7 @@
 <button id="sndBtn">🔊</button>
 <audio id="bandMusic" src="infinity.mp3" preload="auto"></audio>
 <audio id="alienMusic" src="alien_theme.mp3" loop preload="auto"></audio>
+<audio id="bdayMusic" src="parabens.mp3" preload="auto"></audio>
 
 <div class="screen" id="startScreen">
   <div class="sword-emoji">⚔️</div>
@@ -200,6 +201,7 @@
   <div class="controls-hint" id="hintDesktop">🎮 W A S D — mover &nbsp;|&nbsp; ESPAÇO — pular &nbsp;|&nbsp; CLIQUE ou J — atacar</div>
   <div class="controls-hint" id="hintTouch" style="display:none">🕹️ Joystick — mover &nbsp;|&nbsp; ↑ — pular &nbsp;|&nbsp; ⚔️ — atacar</div>
   <button class="btn" id="startBtn">COMEÇAR</button>
+  <button class="btn" id="bdayBtn" style="margin-top:10px; background:linear-gradient(95deg,#ff4fc3,#ffd166,#a78bfa); font-size:15px;">🎂 ANIVERSÁRIO INFINITY</button>
   <div id="homeRank" style="margin-top:22px; width:min(330px, 84vw);"></div>
 </div>
 
@@ -472,16 +474,26 @@ const lampMats = [];    // materiais das lâmpadas (acendem à noite)
 function buildCity() {
   // CHÃO EXTERNO (concreto sob a rua e os prédios — nada flutua)
   const outer = new THREE.Mesh(new THREE.CircleGeometry(170, 48),
-    new THREE.MeshStandardMaterial({ color:0x9a958a, roughness:1 }));
+    new THREE.MeshStandardMaterial({ color:0x256b2e, roughness:1 }));
   outer.rotation.x = -Math.PI/2; outer.position.y = -.02;
   outer.receiveShadow = true; scene.add(outer);
 
   // GRAMA com manchas naturais
   const grassTex = makeTexture((x,w,h) => {
-    x.fillStyle = '#4caf3f'; x.fillRect(0,0,w,h);
-    for (let i = 0; i < 600; i++) {
-      x.fillStyle = Math.random() < .5 ? 'rgba(30,110,35,.28)' : 'rgba(140,210,80,.28)';
-      const s = rand(2, 9);
+    // base verde escura e viva
+    x.fillStyle = '#2f8f3a'; x.fillRect(0,0,w,h);
+    // várias tonalidades de verde em camadas para profundidade e cor
+    const tons = [
+      'rgba(20,90,30,.35)',    // verde bem escuro
+      'rgba(40,120,45,.30)',   // verde médio escuro
+      'rgba(70,160,55,.30)',   // verde vivo
+      'rgba(110,190,70,.28)',  // verde claro
+      'rgba(150,210,90,.22)',  // verde-limão
+      'rgba(30,140,80,.20)',   // verde-esmeralda
+    ];
+    for (let i = 0; i < 900; i++) {
+      x.fillStyle = tons[Math.floor(Math.random() * tons.length)];
+      const s = rand(2, 11);
       x.fillRect(Math.random()*w, Math.random()*h, s, s);
     }
   }, 256, 256, 26, 26);
@@ -2578,6 +2590,7 @@ function toggleSound() {
   if (masterGain) masterGain.gain.value = muted ? 0 : 1;
   if (bandMusic) bandMusic.volume = muted ? 0 : .6;
   if (alienMusic) alienMusic.volume = muted ? 0 : .5;
+  if (bdayMusic) bdayMusic.volume = muted ? 0 : .7;
   document.getElementById('sndBtn').textContent = muted ? '🔇' : '🔊';
 }
 
@@ -3146,6 +3159,119 @@ document.getElementById('jmpBtn').addEventListener('touchstart', e => {
 }, { passive:false });
 
 // ---------- Início ----------
+// ---------- 🎂 MODO ANIVERSÁRIO INFINITY (cena especial, não-jogável) ----------
+let birthdayMode = false;
+let bdayReady = false;
+let bdayMonstros = [];
+let bdayInfinity = null;
+let bdayAngle = 0;
+let bdayMusicTimer = 0;
+let bdayNoteIdx = 0;
+
+function makeChapeu() {
+  const g = new THREE.Group();
+  const cores = [0xff4fc3, 0xffd166, 0x22d3ee, 0x4ade80, 0xa78bfa, 0xff6b6b];
+  const cor = cores[Math.floor(Math.random() * cores.length)];
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(.28, .6, 12),
+    new THREE.MeshStandardMaterial({ color:cor, roughness:.5, emissive:cor, emissiveIntensity:.2 }));
+  g.add(cone);
+  // listras (bolinha no topo)
+  const pom = new THREE.Mesh(new THREE.SphereGeometry(.1, 8, 8),
+    new THREE.MeshStandardMaterial({ color:0xffffff, roughness:.6 }));
+  pom.position.y = .35; g.add(pom);
+  return g;
+}
+
+function startBirthday() {
+  // esconde telas e HUD
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('hud').style.display = 'none';
+  initAudio();
+  stopMusic();
+
+  birthdayMode = true;
+  state.playing = false;          // não-jogável
+  bdayAngle = 0;
+  bdayMusicTimer = 0;
+  bdayNoteIdx = 0;
+
+  // limpa o que houver
+  enemies.forEach(e => scene.remove(e.mesh)); enemies = [];
+
+  // festa acontece NO PALCO DO FESTIVAL
+  const CX = PALCO.x, CZ = PALCO.z;
+  // Infinity (player) em cima do palco, em destaque
+  player.visible = true;
+  player.position.set(CX, .8, CZ - 1);
+  player.rotation.y = 0;
+
+  // banner de mensagem
+  showMsg('🎂 PARABÉNS INFINITY! 🎉');
+
+  // cria 100 monstros de todos os tipos com chapéu, EM FRENTE ao palco (em grade)
+  bdayMonstros = [];
+  const tipos = ['esqueleto', 'zumbi', 'mumia', 'fantasma', 'alien', 'gigante'];
+  for (let i = 0; i < 100; i++) {
+    let built, kind = tipos[i % tipos.length];
+    if (i % 19 === 18) kind = 'gigante';
+    if (kind === 'mumia') built = buildMumia();
+    else if (kind === 'fantasma') built = buildFantasma();
+    else if (kind === 'zumbi') built = buildZumbi();
+    else if (kind === 'alien') built = buildAlien();
+    else built = buildEsqueleto(kind === 'gigante');
+    if (!built || !built.g) continue;
+    const g = built.g;
+    if (kind === 'gigante') g.scale.setScalar(1.5);
+    // grade compacta logo à FRENTE do palco (14 colunas x ~7 fileiras)
+    const col = i % 14;
+    const fileira = Math.floor(i / 14);
+    let mx = CX - 13 + col * 2 + rand(-.2, .2);
+    let mz = CZ + 5 + fileira * 1.5 + rand(-.2, .2);
+    // mantém dentro da arena (raio 58) para não sumir
+    const distC = Math.hypot(mx, mz);
+    if (distC > 58) { mx *= 58 / distC; mz *= 58 / distC; }
+    g.position.set(mx, 0, mz);
+    // vira só no eixo Y (horizontal) para encarar o palco — lookAt deitaria o corpo
+    const baseY = Math.atan2(CX - mx, CZ - mz);
+    g.rotation.y = baseY;
+    const chapeu = makeChapeu();
+    chapeu.position.y = (kind === 'gigante' ? 3.4 : 3.0);
+    g.add(chapeu);
+    scene.add(g);
+    bdayMonstros.push({ mesh:g, bob:Math.random()*10, baseY:baseY });
+  }
+
+  // música de parabéns sintetizada
+  startBirthdaySong();
+  // câmera inicial
+  camZoom = 1.6;
+  bdayReady = false;
+  setTimeout(() => { bdayReady = true; }, 800);
+}
+
+const bdayMusic = document.getElementById('bdayMusic');
+function startBirthdaySong() {
+  // toca a música real de parabéns do início até o fim
+  try {
+    bdayMusic.muted = false;
+    bdayMusic.volume = muted ? 0 : .7;
+    bdayMusic.currentTime = 0;
+    const p = bdayMusic.play();
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+function stopBirthdaySong() {
+  try { bdayMusic.pause(); } catch (e) {}
+}
+
+function exitBirthday() {
+  birthdayMode = false;
+  stopBirthdaySong();
+  bdayMonstros.forEach(m => scene.remove(m.mesh)); bdayMonstros = [];
+  document.getElementById('startScreen').style.display = 'flex';
+  player.visible = true;
+}
+
 function startGame() {
   initAudio();
   startMusic();
@@ -3154,7 +3280,7 @@ function startGame() {
   // desbloqueia os MP3 no celular: o navegador só libera áudio após um toque.
   // damos play e pausamos NA HORA (e de novo quando a Promise resolver) para
   // garantir que nenhuma música fique tocando ao iniciar o jogo.
-  [bandMusic, alienMusic].forEach(a => {
+  [bandMusic, alienMusic, bdayMusic].forEach(a => {
     if (!a) return;
     try {
       a.muted = true;
@@ -3216,6 +3342,10 @@ function startGame() {
   startWave();
 }
 document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('bdayBtn').addEventListener('click', startBirthday);
+// tocar na tela durante o aniversário volta ao menu (após pequeno delay)
+document.addEventListener('click', () => { if (birthdayMode && bdayReady) exitBirthday(); });
+document.addEventListener('touchstart', () => { if (birthdayMode && bdayReady) exitBirthday(); });
 document.getElementById('restartBtn').addEventListener('click', () => { loadHomeRank(); startGame(); });
 if (isTouch) {
   document.getElementById('hintDesktop').style.display = 'none';
@@ -3266,6 +3396,39 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), .05);
   const t = clock.elapsedTime;
+
+  // 🎂 MODO ANIVERSÁRIO: cena especial, não-jogável
+  if (birthdayMode) {
+    updateLuz(dt);
+    // monstros pulando e gingando com chapéu
+    for (const m of bdayMonstros) {
+      m.mesh.position.y = Math.abs(Math.sin(t * 5 + m.bob)) * .5;     // pula
+      m.mesh.rotation.z = Math.sin(t * 4 + m.bob) * .15;              // ginga leve
+      m.mesh.rotation.y = m.baseY + Math.sin(t * 3 + m.bob) * .3;     // balança virado pro palco
+    }
+    // Infinity (player) pula no palco e gira lentamente
+    player.position.y = .8 + Math.abs(Math.sin(t * 4)) * .3;
+    player.rotation.y += dt * .8;
+    // luzes do palco piscando coloridas
+    for (let li = 0; li < palcoLuzes.length; li++) {
+      palcoLuzes[li].intensity = 1.5 + Math.sin(t * 8 + li * 1.3) * 1.5;
+    }
+    // a música real toca sozinha (até o fim)
+    // confete: reaproveita os fireflies como brilho colorido
+    if (fireflies) { fireflyMat.opacity = .6 + Math.sin(t*3)*.3; }
+    // câmera DE FRENTE para o palco, mais baixa (vê a galera de frente)
+    bdayAngle += dt * .25;
+    const cx = PALCO.x;
+    const balanco = Math.sin(bdayAngle) * 6;
+    camera.position.set(
+      cx + balanco,
+      6 + Math.sin(t * .7) * .5,                    // mais baixa
+      PALCO.z + 20                                  // na frente da plateia
+    );
+    camera.lookAt(cx, 2, PALCO.z - 2);              // olha o palco (e a galera no caminho)
+    renderer.render(scene, camera);
+    return;
+  }
 
   // nuvens sempre flutuando
   for (const cl of clouds) {
