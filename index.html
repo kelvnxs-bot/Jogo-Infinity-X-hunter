@@ -45,6 +45,11 @@
     opacity:0; pointer-events:none; transition:opacity .35s; text-align:center;
     width:92vw; max-width:600px; line-height:1.15; word-wrap:break-word; }
 
+  #combo { position:fixed; top:48%; left:50%; transform:translate(-50%,-50%) scale(1); z-index:11;
+    font-size:clamp(28px, 7vw, 58px); font-weight:900; letter-spacing:4px;
+    color:#ff4fc3; text-shadow:0 0 40px rgba(255,79,195,.9), 0 0 12px rgba(255,79,195,.6), 0 4px 0 rgba(0,0,0,.5);
+    opacity:0; pointer-events:none; transition:opacity .25s; text-align:center; }
+
   /* ---------- Dano (flash vermelho) ---------- */
   #dmg { position:fixed; inset:0; background:radial-gradient(circle, transparent 40%, rgba(255,0,40,.45) 100%);
     opacity:0; pointer-events:none; z-index:9; transition:opacity .12s; }
@@ -52,12 +57,12 @@
     width:110px; height:110px; display:none; z-index:10; pointer-events:none; }
 
   /* ---------- Controles touch ---------- */
-  #joyBase { position:fixed; left:26px; bottom:max(30px, env(safe-area-inset-bottom)); width:120px; height:120px;
-    border-radius:50%; background:rgba(255,255,255,.06); border:2px solid rgba(178,107,255,.35);
-    display:none; z-index:12; }
-  #joyStick { position:absolute; left:50%; top:50%; width:54px; height:54px; border-radius:50%;
-    background:rgba(178,107,255,.35); border:2px solid rgba(178,107,255,.8);
-    transform:translate(-50%,-50%); box-shadow:0 0 18px rgba(178,107,255,.5); }
+  #joyBase { position:fixed; left:26px; bottom:max(30px, env(safe-area-inset-bottom)); width:150px; height:150px;
+    border-radius:50%; background:rgba(255,255,255,.08); border:2px solid rgba(178,107,255,.4);
+    display:none; z-index:12; pointer-events:none; }
+  #joyStick { position:absolute; left:50%; top:50%; width:62px; height:62px; border-radius:50%;
+    background:rgba(178,107,255,.45); border:2px solid rgba(178,107,255,.9);
+    transform:translate(-50%,-50%); box-shadow:0 0 22px rgba(178,107,255,.6); pointer-events:none; }
   #atkBtn { position:fixed; right:30px; bottom:max(42px, env(safe-area-inset-bottom)); width:88px; height:88px;
     border-radius:50%; border:2px solid rgba(255,59,92,.7); background:rgba(255,59,92,.22);
     color:#fff; font-size:34px; display:none; z-index:12;
@@ -170,6 +175,7 @@
 <div id="bigMsg"></div>
 
 <div id="msg"></div>
+<div id="combo"></div>
 <div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 200px); right:16px; z-index:11; display:none; padding:4px 9px; border-radius:14px; background:rgba(8,12,24,.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); white-space:nowrap; pointer-events:none; font-size:11px; font-weight:700; color:#ffd166; letter-spacing:.2px;"></div>
 <div id="dmg"></div>
 <canvas id="minimap" width="220" height="220"></canvas>
@@ -244,7 +250,7 @@ const state = {
 };
 
 const keys = {};
-const joy = { active:false, id:null, dx:0, dy:0 };
+const joy = { active:false, id:null, dx:0, dy:0, originX:0, originY:0 };
 const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 let enemies = [], acais = [], heartDrops = [], beams = [], clouds = [], auras = [], novas = [], bombs = [], explosions = [], rainbowShots = [];
 
@@ -438,7 +444,11 @@ function makeSign(text, bg, fg) {
   const x = c.getContext('2d');
   x.fillStyle = bg; x.fillRect(0,0,512,128);
   x.strokeStyle = fg; x.lineWidth = 8; x.strokeRect(8,8,496,112);
-  x.fillStyle = fg; x.font = '900 56px Arial'; x.textAlign='center'; x.textBaseline='middle';
+  x.fillStyle = fg; x.textAlign='center'; x.textBaseline='middle';
+  // fonte adaptativa: começa em 56px e reduz até caber
+  let size = 56;
+  x.font = `900 ${size}px Arial`;
+  while (x.measureText(text).width > 480 && size > 20) { size -= 3; x.font = `900 ${size}px Arial`; }
   x.fillText(text, 256, 70);
   return new THREE.Mesh(new THREE.PlaneGeometry(5, 1.25),
     new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(c) }));
@@ -480,16 +490,16 @@ function buildCity() {
 
   // GRAMA com manchas naturais
   const grassTex = makeTexture((x,w,h) => {
-    // base verde escura e viva
-    x.fillStyle = '#2f8f3a'; x.fillRect(0,0,w,h);
+    // base verde escura
+    x.fillStyle = '#1a5220'; x.fillRect(0,0,w,h);
     // várias tonalidades de verde em camadas para profundidade e cor
     const tons = [
-      'rgba(20,90,30,.35)',    // verde bem escuro
-      'rgba(40,120,45,.30)',   // verde médio escuro
-      'rgba(70,160,55,.30)',   // verde vivo
-      'rgba(110,190,70,.28)',  // verde claro
-      'rgba(150,210,90,.22)',  // verde-limão
-      'rgba(30,140,80,.20)',   // verde-esmeralda
+      'rgba(10,55,18,.45)',    // verde bem escuro
+      'rgba(22,75,28,.38)',    // verde médio escuro
+      'rgba(38,100,35,.32)',   // verde médio
+      'rgba(55,125,42,.25)',   // verde vivo (mais contido)
+      'rgba(20,90,55,.20)',    // verde-esmeralda escuro
+      'rgba(12,60,22,.30)',    // verde floresta
     ];
     for (let i = 0; i < 900; i++) {
       x.fillStyle = tons[Math.floor(Math.random() * tons.length)];
@@ -503,13 +513,13 @@ function buildCity() {
 
   // CALÇADA PORTUGUESA (pedrinhas com ondas escuras)
   const calcadaTex = makeTexture((x,w,h) => {
-    x.fillStyle = '#e7dcc3'; x.fillRect(0,0,w,h);
+    x.fillStyle = '#2e2a26'; x.fillRect(0,0,w,h);
     for (let py = 0; py < h; py += 12) for (let px = 0; px < w; px += 12) {
-      const tone = 215 + Math.floor(Math.random()*25);
-      x.fillStyle = `rgb(${tone},${tone-10},${tone-35})`;
+      const tone = 62 + Math.floor(Math.random()*18);
+      x.fillStyle = `rgb(${tone},${tone-4},${tone-8})`;
       x.fillRect(px+1, py+1, 10, 10);
     }
-    x.strokeStyle = 'rgba(40,40,45,.55)'; x.lineWidth = 11;
+    x.strokeStyle = 'rgba(10,8,6,.75)'; x.lineWidth = 11;
     x.beginPath(); x.arc(w*.5, h*1.1, w*.55, Math.PI, Math.PI*2); x.stroke();
     x.beginPath(); x.arc(w*.5, -h*.1, w*.55, 0, Math.PI); x.stroke();
   }, 256, 256, 14, 3);
@@ -544,9 +554,8 @@ function buildCity() {
   });
 
   // CAMINHOS internos em cruz
-  const pathMat = new THREE.MeshStandardMaterial({ map:calcadaTex.clone(), roughness:1 });
-  pathMat.map.repeat.set(2, 24); pathMat.map.needsUpdate = true;
-  [[0,0,3.4,ARENA*2],[0,0,ARENA*2,3.4]].forEach(([x,z,w,d], i) => {
+  const pathMat = new THREE.MeshStandardMaterial({ color:0x4a3c2e, roughness:1 });
+  [[0,0,3.4,ARENA*2],[0,0,ARENA*2,3.4]].forEach(([x,z,w,d]) => {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(w,d), pathMat);
     p.rotation.x = -Math.PI/2; p.position.set(x,.02,z); p.receiveShadow = true; scene.add(p);
   });
@@ -615,16 +624,16 @@ function buildCity() {
     scene.add(g);
   }
   // palmeiras perto da fonte
-  for (let i = 0; i < 6; i++) {
-    const a = (i/6) * Math.PI*2 + .4;
+  for (let i = 0; i < 3; i++) {
+    const a = (i/3) * Math.PI*2 + .4;
     palm(Math.cos(a)*7.5, Math.sin(a)*7.5);
   }
   // árvores espalhadas (evitando caminhos, quadra e fonte)
   const kinds = ['verde','verde','amarelo','rosa','verde','amarelo'];
   let placed = 0, tries = 0;
-  while (placed < 45 && tries < 800) {
+  while (placed < 20 && tries < 800) {
     tries++;
-    const a = Math.random()*Math.PI*2, r = rand(7, ARENA-3);
+    const a = Math.random()*Math.PI*2, r = rand(16, ARENA-3);
     const px = Math.cos(a)*r, pz = Math.sin(a)*r;
     if (Math.abs(px) < 3.5 || Math.abs(pz) < 3.5) continue;            // caminhos
     if (px > 10 && px < 24 && pz > -27 && pz < -7) continue;           // quadra
@@ -633,7 +642,7 @@ function buildCity() {
     if (Math.hypot(px + 30, pz - 26) < 10) continue;                   // parquinho
     if (Math.hypot(px - 10, pz + 42) < 13) continue;                   // lago
     if (Math.hypot(px - 30, pz + 30) < 13) continue;                   // palco do festival
-    if (Math.hypot(px + 34, pz - 4) < 9) continue;                     // buteco
+    if (Math.hypot(px + 20, pz - 42) < 9) continue;                     // bar
     if (Math.hypot(px, pz) < 5) continue;                              // fonte
     tree(kinds[placed % kinds.length], px, pz);
     placed++;
@@ -1001,6 +1010,66 @@ function buildParquinho() {
   gira.position.set(PX, 0, PZ + 3.6);
   obstacles.push({ x:PX, z:PZ + 3.6, r:1.5 });
   scene.add(gira);
+
+  // Gangorra
+  const gang = new THREE.Group();
+  const pivô = new THREE.Mesh(new THREE.BoxGeometry(.12, .8, .12),
+    new THREE.MeshStandardMaterial({ color:0x4d4d52 }));
+  pivô.position.y = .4; gang.add(pivô);
+  const tábua = new THREE.Mesh(new THREE.BoxGeometry(3.8, .1, .35),
+    new THREE.MeshStandardMaterial({ color:0xe24b4a, roughness:.7 }));
+  tábua.position.y = .82; tábua.rotation.z = .18; gang.add(tábua);
+  [-1.7, 1.7].forEach(sx => {
+    const cab = new THREE.Mesh(new THREE.SphereGeometry(.18, 8, 8),
+      new THREE.MeshStandardMaterial({ color:0xffd166 }));
+    cab.position.set(sx * (sx > 0 ? 1 : -1), .82 + Math.abs(sx) * .18 * Math.sign(sx), 0);
+    gang.add(cab);
+  });
+  gang.position.set(PX + 2, 0, PZ + 5);
+  obstacles.push({ x:PX + 2, z:PZ + 5, r:2 });
+  scene.add(gang);
+
+  // Trepa-trepa (escada horizontal)
+  const trepa = new THREE.Group();
+  const poleMat2 = new THREE.MeshStandardMaterial({ color:0x2d6cdf, roughness:.5 });
+  [[-1.1, 0], [1.1, 0]].forEach(([sx]) => {
+    const lat = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, 2.5, 8), poleMat2);
+    lat.position.set(sx, 1.8, 0); trepa.add(lat);
+  });
+  for (let i = 0; i < 5; i++) {
+    const deg = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, 2.2, 8),
+      new THREE.MeshStandardMaterial({ color:0xf0a02f }));
+    deg.rotation.z = Math.PI/2;
+    deg.position.set(0, .8 + i*.42, 0); trepa.add(deg);
+  }
+  trepa.position.set(PX - 4.5, 0, PZ + 4);
+  obstacles.push({ x:PX - 4.5, z:PZ + 4, r:1.4 });
+  scene.add(trepa);
+
+  // Caixa de areia com baldinho
+  const caixa = new THREE.Group();
+  const borda1 = new THREE.Mesh(new THREE.BoxGeometry(3, .3, .2),
+    new THREE.MeshStandardMaterial({ color:0x8a6a45, roughness:1 }));
+  const borda2 = borda1.clone();
+  borda1.position.set(0, .15, -1.3); caixa.add(borda1);
+  borda2.position.set(0, .15,  1.3); caixa.add(borda2);
+  [[-1.4, 0], [1.4, 0]].forEach(([sx]) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(.2, .3, 2.6),
+      new THREE.MeshStandardMaterial({ color:0x8a6a45, roughness:1 }));
+    b.position.set(sx, .15, 0); caixa.add(b);
+  });
+  const areiaCx = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6),
+    new THREE.MeshStandardMaterial({ color:0xe8d8a8, roughness:1 }));
+  areiaCx.rotation.x = -Math.PI/2; areiaCx.position.y = .02; caixa.add(areiaCx);
+  // baldinho
+  const balde = new THREE.Mesh(new THREE.CylinderGeometry(.18, .13, .32, 8),
+    new THREE.MeshStandardMaterial({ color:0xd9342b, roughness:.6 }));
+  balde.position.set(.5, .37, .4); caixa.add(balde);
+  const pázinha = new THREE.Mesh(new THREE.BoxGeometry(.08, .5, .06),
+    new THREE.MeshStandardMaterial({ color:0xffd166 }));
+  pázinha.position.set(-.4, .35, -.3); pázinha.rotation.z = .4; caixa.add(pázinha);
+  caixa.position.set(PX + 4.5, 0, PZ + 4.5);
+  scene.add(caixa);
 }
 
 // ---------- Lago ----------
@@ -1051,6 +1120,28 @@ function buildLago() {
       new THREE.MeshStandardMaterial({ color:0x8e8b80, roughness:1 }));
     pedra.position.set(LX + Math.cos(a)*(LR + 1.4), .2, LZ + Math.sin(a)*(LR + 1.4));
     pedra.scale.y = .6; pedra.castShadow = true; scene.add(pedra);
+  }
+
+  // PEIXES animados (nadam em círculo dentro do lago)
+  const peixeCores = [0xff6b6b, 0xffd166, 0x4ade80, 0x22d3ee, 0xff9f1c, 0xf472b6];
+  window._peixes = [];
+  for (let i = 0; i < 6; i++) {
+    const g = new THREE.Group();
+    const corpo = new THREE.Mesh(new THREE.SphereGeometry(.28, 8, 6),
+      new THREE.MeshStandardMaterial({ color:peixeCores[i], roughness:.4, metalness:.1 }));
+    corpo.scale.set(1.6, .7, 1); g.add(corpo);
+    const cauda = new THREE.Mesh(new THREE.ConeGeometry(.22, .38, 4),
+      new THREE.MeshStandardMaterial({ color:peixeCores[i], roughness:.4 }));
+    cauda.rotation.z = Math.PI/2; cauda.position.x = -.42; g.add(cauda);
+    const olho = new THREE.Mesh(new THREE.SphereGeometry(.06, 6, 6),
+      new THREE.MeshBasicMaterial({ color:0x111111 }));
+    olho.position.set(.25, .1, .22); g.add(olho);
+    const raio = rand(2.5, LR - 1.5);
+    const fase = (i / 6) * Math.PI * 2;
+    const vel = rand(.4, .9) * (Math.random() < .5 ? 1 : -1);
+    g.position.set(LX + Math.cos(fase) * raio, .12, LZ + Math.sin(fase) * raio);
+    scene.add(g);
+    window._peixes.push({ mesh:g, raio, fase, vel, lx:LX, lz:LZ });
   }
 }
 buildFeira(); buildParquinho(); buildLago();
@@ -1129,7 +1220,7 @@ buildPalco();
 
 // ---------- Buteco do Infinity ----------
 function buildButeco() {
-  const BX = -34, BZ = 4;
+  const BX = -20, BZ = 42;
   // piso de cimento queimado
   const piso = new THREE.Mesh(new THREE.CircleGeometry(7, 24),
     new THREE.MeshStandardMaterial({ color:0x6b5d4f, roughness:.95 }));
@@ -1194,8 +1285,8 @@ function buildButeco() {
     obstacles.push({ x:barril.position.x, z:barril.position.z, r:.5 });
   }
 
-  // letreiro neon "BUTECO DO INFINITY"
-  const letreiro = makeSign('BUTECO DO INFINITY', '#1a0d2e', '#ff4fc3');
+  // letreiro neon "BAR DO INFINITY"
+  const letreiro = makeSign('BAR DO INFINITY', '#1a0d2e', '#ff4fc3');
   letreiro.scale.set(1.3, 1.3, 1.3);
   letreiro.position.set(BX, 3, BZ - 3.5); scene.add(letreiro);
   // luz neon rosa
@@ -1214,7 +1305,7 @@ function buildScatter() {
     if (Math.hypot(x - 32, z - 16) < 9) return true;             // feira
     if (Math.hypot(x + 30, z - 26) < 10) return true;            // parquinho
     if (Math.hypot(x - 10, z + 42) < 13) return true;            // lago
-    if (Math.hypot(x + 34, z - 4) < 9) return true;              // buteco
+    if (Math.hypot(x + 20, z - 42) < 9) return true;              // bar
     if (Math.hypot(x - 30, z + 30) < 13) return true;            // palco (área ampla)
     return false;
   };
@@ -1368,6 +1459,15 @@ function buildPlayer() {
   const v1 = new THREE.Mesh(new THREE.BoxGeometry(.28, .06, .02), playerGlow);
   v1.rotation.z = Math.PI/4; v1.position.set(0, .03, .285); head.add(v1);
   const v2 = v1.clone(); v2.rotation.z = -Math.PI/4; head.add(v2);
+  // Rosto: olhos brilhantes + boca
+  const eyeFaceMat = new THREE.MeshBasicMaterial({ color:0xd4a8ff });
+  [-.1, .1].forEach(x => {
+    const eyeFace = new THREE.Mesh(new THREE.BoxGeometry(.07, .07, .02), eyeFaceMat);
+    eyeFace.position.set(x, .1, .286); head.add(eyeFace);
+  });
+  const mouthMat = new THREE.MeshBasicMaterial({ color:0x9b5cf6 });
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(.14, .03, .02), mouthMat);
+  mouth.position.set(0, -.08, .286); head.add(mouth);
   player.add(head);
 
   // Braço esquerdo
@@ -1442,10 +1542,28 @@ function buildPlayer() {
   rightArm.add(bombHand);
   player.add(rightArm);
 
-  // Aura do poder
-  aura = new THREE.Mesh(new THREE.RingGeometry(.9, 1.35, 28),
-    new THREE.MeshBasicMaterial({ color:0xb26bff, side:THREE.DoubleSide, transparent:true, opacity:.7 }));
-  aura.rotation.x = -Math.PI/2; aura.position.y = .06; aura.visible = false;
+  // Aura em chamas sobrenaturais roxas
+  aura = new THREE.Group();
+  const flameMat1 = new THREE.MeshBasicMaterial({ color:0xb26bff, transparent:true, opacity:.85, side:THREE.DoubleSide });
+  const flameMat2 = new THREE.MeshBasicMaterial({ color:0x7c3aed, transparent:true, opacity:.7,  side:THREE.DoubleSide });
+  const flameMat3 = new THREE.MeshBasicMaterial({ color:0xe0b4ff, transparent:true, opacity:.5,  side:THREE.DoubleSide });
+  const flamePositions = [
+    { a:0,        r:.95, mat:flameMat1, h:.9,  base:.0  },
+    { a:Math.PI*.4, r:.85, mat:flameMat2, h:1.2, base:.05 },
+    { a:Math.PI*.8, r:.9,  mat:flameMat1, h:.8,  base:.0  },
+    { a:Math.PI*1.2,r:.88, mat:flameMat3, h:1.4, base:.08 },
+    { a:Math.PI*1.6,r:.92, mat:flameMat2, h:1.0, base:.03 },
+    { a:Math.PI*.2, r:.8,  mat:flameMat3, h:.75, base:.0  },
+    { a:Math.PI,    r:.93, mat:flameMat1, h:1.1, base:.04 },
+  ];
+  flamePositions.forEach(({ a, r, mat, h, base }) => {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(.18, h, 5), mat.clone());
+    cone.position.set(Math.cos(a)*r, base + h*.5, Math.sin(a)*r);
+    cone.rotation.z = Math.PI; // ponta pra cima
+    aura.add(cone);
+  });
+  aura.position.y = .08;
+  aura.visible = false;
   player.add(aura);
 
   // ---------- Peças de UNICÓRNIO (escondidas por padrão) ----------
@@ -1500,6 +1618,7 @@ function buildPlayer() {
   player.add(playerLight);
 }
 buildPlayer();
+initCombo();
 
 function setSkin(id) {
   currentSkin = SKINS[id];
@@ -1547,12 +1666,14 @@ function spawnPosNearPlayer(minR, maxR) {
 
 // ---------- Monstros ----------
 const MONSTROS = {
-  esqueleto: { hp:3,  dmg:1, vel:1,    kills:1, bar:1 },
-  mumia:     { hp:6,  dmg:1, vel:.65,  kills:2, bar:1 },
-  fantasma:  { hp:1,  dmg:1, vel:1.55, kills:1, bar:.8 },
-  zumbi:     { hp:4,  dmg:1, vel:.85,  kills:2, bar:1 },
-  gigante:   { hp:12, dmg:2, vel:.62,  kills:3, bar:1 },
-  alien:     { hp:3,  dmg:1, vel:1.1,  kills:1, bar:1 },   // +1 aura por kill
+  esqueleto:   { hp:3,  dmg:1, vel:1,    kills:1, bar:1 },
+  mumia:       { hp:6,  dmg:1, vel:.65,  kills:2, bar:1 },
+  fantasma:    { hp:1,  dmg:1, vel:1.55, kills:1, bar:.8 },
+  zumbi:       { hp:4,  dmg:1, vel:.85,  kills:2, bar:1 },
+  gigante:     { hp:12, dmg:2, vel:.62,  kills:3, bar:1 },
+  alien:       { hp:3,  dmg:1, vel:1.1,  kills:1, bar:1 },
+  mumiaRainha: { hp:22, dmg:2, vel:.55,  kills:5, bar:1.4 },
+  zumbiGigante:{ hp:18, dmg:2, vel:.70,  kills:4, bar:1.3 },
 };
 
 function makeHealthBar(g, w) {
@@ -1566,7 +1687,7 @@ function makeHealthBar(g, w) {
 function buildEsqueleto(elite) {
   const g = new THREE.Group();
   // ossos pretos; o gigante (boss) é ainda mais escuro e sombrio
-  const mat = new THREE.MeshStandardMaterial({ color: elite ? 0x16141a : 0x2b2730, roughness:.85, metalness:.15 });
+  const mat = new THREE.MeshStandardMaterial({ color: elite ? 0x16141a : 0x1a1520, roughness:.85, metalness:.15 });
   const mk = (w,h,d) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat); m.castShadow = true; return m; };
 
   const ll = mk(.18,.75,.18); ll.geometry.translate(0,-.37,0); ll.position.set(-.15, 1, 0);
@@ -1623,8 +1744,8 @@ function buildEsqueleto(elite) {
 
 function buildMumia() {
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color:0xd8c9a3, roughness:1 });
-  const wrap = new THREE.MeshStandardMaterial({ color:0xb0a078, roughness:1 });
+  const mat = new THREE.MeshStandardMaterial({ color:0x6b5c3a, roughness:1 });
+  const wrap = new THREE.MeshStandardMaterial({ color:0x4a3e26, roughness:1 });
   const mk = (w,h,d,m2) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m2 || mat); m.castShadow = true; return m; };
 
   const ll = mk(.24,.78,.24); ll.geometry.translate(0,-.39,0); ll.position.set(-.16, 1, 0);
@@ -1671,13 +1792,20 @@ function buildFantasma() {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(.07, 8, 8), eyeMat);
     eye.position.set(x, 2.05, .36); g.add(eye);
   });
+  // sombra no chão para indicar posição
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(.5, 14),
+    new THREE.MeshBasicMaterial({ color:0x1a1a2e, transparent:true, opacity:.55, depthWrite:false }));
+  shadow.rotation.x = -Math.PI/2; shadow.position.y = .03;
+  shadow.scale.set(1, .5, 1);
+  g.add(shadow);
+  g.userData.groundShadow = shadow;
   return { g, mat };
 }
 
 function buildZumbi() {
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color:0x6a9a5b, roughness:1 });        // pele verde
-  const cloth = new THREE.MeshStandardMaterial({ color:0x3a3340, roughness:1 });      // roupa rasgada
+  const mat = new THREE.MeshStandardMaterial({ color:0x2d5a22, roughness:1 });        // pele verde escura
+  const cloth = new THREE.MeshStandardMaterial({ color:0x1a1520, roughness:1 });      // roupa rasgada escura
   const mk = (w,h,d,m2) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m2 || mat); m.castShadow = true; return m; };
 
   const ll = mk(.24,.78,.26, cloth); ll.geometry.translate(0,-.39,0); ll.position.set(-.16, 1, 0);
@@ -1710,21 +1838,32 @@ function buildZumbi() {
 function spawnMonster(speed, kind, pos) {
   const conf = MONSTROS[kind];
   let built;
-  if (kind === 'mumia') built = buildMumia();
+  if (kind === 'mumia' || kind === 'mumiaRainha') built = buildMumia();
   else if (kind === 'fantasma') built = buildFantasma();
-  else if (kind === 'zumbi') built = buildZumbi();
+  else if (kind === 'zumbi' || kind === 'zumbiGigante') built = buildZumbi();
   else if (kind === 'alien') built = buildAlien();
   else built = buildEsqueleto(kind === 'gigante');
   const { g, mat } = built;
   const barFg = makeHealthBar(g, conf.bar);
-  // Boss fica mais forte e maior a partir da onda 10
   let hpMult = 1, dmgBonus = 0, escala = 1;
   if (kind === 'gigante') {
-    escala = 1.85;
-    if (state.wave >= 10) {
-      hpMult = 1.8; dmgBonus = 1; escala = 2.3;     // boss aprimorado: +80% vida, +1 dano, maior
-    }
-    g.scale.setScalar(escala);
+    // gigante escala HP progressivamente por onda, máximo 1 por onda
+    const hpBonus = Math.max(0, state.wave - 3) * 3;
+    escala = 1.85 + Math.max(0, state.wave - 3) * .06;
+    if (state.wave >= 10) { hpMult = 1.8; dmgBonus = 1; escala = 2.3; }
+    else { conf.hp = 12 + hpBonus; }
+    g.scale.setScalar(Math.min(escala, 2.3));
+  }
+  if (kind === 'mumiaRainha') {
+    g.scale.setScalar(1.8);
+    // cor dourada escura para a rainha
+    mat.color.setHex(0x9a7a20);
+    mat.emissive = new THREE.Color(0x4a3800);
+    mat.emissiveIntensity = .3;
+  }
+  if (kind === 'zumbiGigante') {
+    g.scale.setScalar(1.7);
+    mat.color.setHex(0x1a3a10);
   }
   g.position.copy(pos || spawnPosNearPlayer(16, 24));
 
@@ -1732,7 +1871,7 @@ function spawnMonster(speed, kind, pos) {
   const e = { mesh:g, mat, barFg, kind,
     baseColor: mat.color.getHex(),
     hp:hpFinal, maxHp:hpFinal,
-    elite: kind === 'gigante',
+    elite: kind === 'gigante' || kind === 'mumiaRainha' || kind === 'zumbiGigante',
     ghost: kind === 'fantasma',
     alienReward: kind === 'alien',
     dmg: conf.dmg + dmgBonus, killsVal: conf.kills,
@@ -1797,7 +1936,26 @@ function startWave() {
 
   const count = 3 + state.wave * 2;
   const speed = Math.min(1.8 + state.wave * .18, 3.8);
-  const elites = state.wave >= 3 ? Math.min(1 + Math.floor((state.wave - 3) / 2), 3) : 0;
+  const temGigante = state.wave >= 3;
+
+  // Mini bosses surpresa: onda 5 = Mumia Rainha, onda 7 = Zumbi Gigante
+  if (state.wave === 5) {
+    setTimeout(() => {
+      if (!state.playing) return;
+      spawnMonster(speed, 'mumiaRainha');
+      showMsg('👑 MUMIA RAINHA DESPERTA!');
+      sfx('wave');
+    }, 2200);
+  }
+  if (state.wave === 7) {
+    setTimeout(() => {
+      if (!state.playing) return;
+      spawnMonster(speed, 'zumbiGigante');
+      showMsg('🧟 ZUMBI COLOSSAL!');
+      sfx('wave');
+    }, 2200);
+  }
+
   for (let i = 0; i < count; i++) setTimeout(() => {
     if (!state.playing) return;
     const r = Math.random();
@@ -1811,12 +1969,12 @@ function startWave() {
     else if (state.wave >= 2 && r < .58) kind = 'mumia';
     spawnMonster(speed, kind, pos);
   }, i * 420);
-  for (let i = 0; i < elites; i++) setTimeout(() => {
+  // máximo 1 gigante por onda, mais forte a cada onda
+  if (temGigante) setTimeout(() => {
     if (state.playing) spawnMonster(speed, 'gigante');
-  }, 1200 + i * 900);
-  showMsg(elites > 0
-    ? 'ONDA ' + state.wave + (state.wave >= 10 ? ' 💀 BOSS SOMBRIO!' : ' ⚠️ GIGANTE!')
-    : 'ONDA ' + state.wave);
+  }, 1800);
+  const msgExtra = state.wave === 5 ? ' 👑 MUMIA RAINHA!' : state.wave === 7 ? ' 🧟 ZUMBI COLOSSAL!' : temGigante ? ' ⚠️ GIGANTE!' : '';
+  showMsg('ONDA ' + state.wave + msgExtra);
   sfx('wave');
 }
 
@@ -2165,7 +2323,7 @@ function setPower(type) {
   state.powerType = type;
   state.power = POWER_TIME;
   aura.visible = true;
-  aura.material.color.setHex(P.cor);
+  aura.children.forEach(c => c.material.color.setHex(P.cor));
   playerGlow.color.setHex(P.cor);
   playerGlow.emissive.setHex(P.cor);
   hammer.visible = (type === 'martelo');
@@ -2320,6 +2478,38 @@ function updateKills() {
   document.getElementById('kills').innerHTML = state.kills + ' <span>MONSTROS</span>';
 }
 let msgTimer;
+let comboCount = 0, comboTimer = 0, comboEl;
+function initCombo() { comboEl = document.getElementById('combo'); }
+function registerKillCombo() {
+  comboCount++;
+  comboTimer = 2.2;
+  if (comboCount >= 3) {
+    const tier = comboCount >= 10 ? '🔥 x' + comboCount + ' INSANO!' :
+                 comboCount >= 6  ? '💥 x' + comboCount + ' COMBO!' :
+                                    '⚡ x' + comboCount + ' COMBO!';
+    comboEl.textContent = tier;
+    comboEl.style.opacity = 1;
+    comboEl.style.transform = 'translate(-50%,-50%) scale(1.18)';
+    setTimeout(() => { comboEl.style.transform = 'translate(-50%,-50%) scale(1)'; }, 120);
+    // bônus de aura por combo
+    const bonus = comboCount >= 10 ? 3 : comboCount >= 6 ? 2 : 1;
+    state.aura += bonus;
+    if (state.aura >= auraMilestone) {
+      const t2 = Math.min(3, Math.round(auraMilestone / 10));
+      auraMilestone += 10; triggerSupremo(t2);
+    }
+    updateAuraHud();
+  }
+}
+function tickCombo(dt) {
+  if (comboTimer > 0) {
+    comboTimer -= dt;
+    if (comboTimer <= 0) {
+      comboCount = 0;
+      comboEl.style.opacity = 0;
+    }
+  }
+}
 function showMsg(t) {
   const el = document.getElementById('msg');
   el.textContent = t; el.style.opacity = 1;
@@ -2336,7 +2526,7 @@ const QUEST_LOCAIS = [
   { nome:'QUADRA',    x:17,  z:-17 },
   { nome:'PRAÇA',     x:0,   z:14 },
   { nome:'RUA',       x:-14, z:-30 },
-  { nome:'BUTECO',    x:-34, z:4 },
+  { nome:'BAR',    x:-20, z:42 },
 ];
 const quest = { ativa:false, caixas:[], total:0, pegas:0, tempo:0, tempoMax:0, cooldown:6 };
 
@@ -2758,6 +2948,7 @@ function hurtEnemy(e, dmg, dir, kb) {
     e.dying = .6;
     state.kills += e.killsVal;
     updateKills();
+    registerKillCombo();
     sfx('death');
     if (e.alienReward) {                                            // alien morto dá +1 aura
       state.aura++;
@@ -2820,9 +3011,12 @@ function hurtGatos(range, allDir, fwd) {
     const to = c.mesh.position.clone().sub(player.position); to.y = 0;
     const dist = to.length();
     if (dist > range) continue;
-    if (!allDir && fwd && fwd.dot(to.clone().normalize()) < .25 && dist > 1.2) continue;
+    // gatos são pequenos: cone de ataque mais generoso (.0 em vez de .25) e sem dist mínima
+    if (!allDir && fwd && dist > 0.1 && fwd.dot(to.clone().normalize()) < 0) continue;
     scene.remove(c.mesh); gatos.splice(i, 1);
-    if (typeof sfx === 'function') sfx('hit');
+    sfx('hit');
+    state.kills++;
+    updateKills();
   }
 }
 
@@ -3103,15 +3297,22 @@ document.getElementById('sndBtn').addEventListener('touchstart', e => {
 const joyBase = document.getElementById('joyBase');
 const joyStick = document.getElementById('joyStick');
 
-function joyCenter() {
-  const r = joyBase.getBoundingClientRect();
-  return { x: r.left + r.width/2, y: r.top + r.height/2 };
-}
+const JOY_RADIUS = 60; // raio do base em px
+const JOY_KNOB   = 55; // máximo de deslocamento do knob
+
 addEventListener('touchstart', e => {
   for (const t of e.changedTouches) {
     if (t.clientX < innerWidth * .5 && !joy.active) {
       joy.active = true; joy.id = t.identifier;
-      updateJoy(t);
+      joy.originX = t.clientX; joy.originY = t.clientY;
+      // posiciona o base onde o dedo tocou
+      joyBase.style.left   = (t.clientX - JOY_RADIUS) + 'px';
+      joyBase.style.top    = (t.clientY - JOY_RADIUS) + 'px';
+      joyBase.style.bottom = 'unset';
+      joyBase.style.width  = (JOY_RADIUS * 2) + 'px';
+      joyBase.style.height = (JOY_RADIUS * 2) + 'px';
+      joyStick.style.transform = 'translate(-50%,-50%)';
+      joy.dx = 0; joy.dy = 0;
     }
   }
 }, { passive:false });
@@ -3121,8 +3322,18 @@ function nonJoyTouches(e) {
 }
 addEventListener('touchmove', e => {
   e.preventDefault();
-  for (const t of e.changedTouches)
-    if (joy.active && t.identifier === joy.id) updateJoy(t);
+  for (const t of e.changedTouches) {
+    if (joy.active && t.identifier === joy.id) {
+      let dx = t.clientX - joy.originX;
+      let dy = t.clientY - joy.originY;
+      const len = Math.hypot(dx, dy);
+      const clamped = Math.min(len, JOY_KNOB);
+      if (len > 0) { dx = dx/len * clamped; dy = dy/len * clamped; }
+      joy.dx = dx / JOY_KNOB;
+      joy.dy = dy / JOY_KNOB;
+      joyStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    }
+  }
   // pinça para zoom (dois dedos que não sejam o joystick)
   const pts = nonJoyTouches(e);
   if (pts.length >= 2) {
@@ -3136,21 +3347,20 @@ addEventListener('touchmove', e => {
   }
 }, { passive:false });
 addEventListener('touchend', e => {
-  for (const t of e.changedTouches)
+  for (const t of e.changedTouches) {
     if (t.identifier === joy.id) {
       joy.active = false; joy.dx = 0; joy.dy = 0;
       joyStick.style.transform = 'translate(-50%,-50%)';
+      // restaura posição original do base
+      joyBase.style.left   = '26px';
+      joyBase.style.top    = 'unset';
+      joyBase.style.bottom = 'max(30px, env(safe-area-inset-bottom))';
+      joyBase.style.width  = '150px';
+      joyBase.style.height = '150px';
     }
+  }
   if (nonJoyTouches(e).length < 2) pinchDist = null;
 });
-function updateJoy(t) {
-  const c = joyCenter();
-  let dx = t.clientX - c.x, dy = t.clientY - c.y;
-  const len = Math.hypot(dx, dy), max = 48;
-  if (len > max) { dx = dx/len*max; dy = dy/len*max; }
-  joy.dx = dx/max; joy.dy = dy/max;
-  joyStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-}
 document.getElementById('atkBtn').addEventListener('touchstart', e => {
   e.preventDefault(); e.stopPropagation(); attack();
 }, { passive:false });
@@ -3460,7 +3670,7 @@ function animate() {
     if (keys['KeyD'] || keys['ArrowRight']) mx += 1;
     mx += joy.dx; mz += joy.dy;
     const mlen = Math.hypot(mx, mz);
-    const moving = mlen > .15;
+    const moving = mlen > .05;
     if (moving) {
       mx /= Math.max(mlen, 1); mz /= Math.max(mlen, 1);
       const spd = PLAYER_SPEED * (1 + upgrades.vel)
@@ -3627,10 +3837,41 @@ function animate() {
         e.mesh.position.x = np.x;
         e.mesh.position.z = np.z;
       }
+      // --- Separação: empurra monstros que estejam se sobrepondo ---
+      const SEP_RADIUS = e.elite ? 2.0 : 1.1;
+      const SEP_FORCE  = e.elite ? 1.8 : 2.2;
+      let sx = 0, sz = 0;
+      for (let j = 0; j < enemies.length; j++) {
+        const o = enemies[j];
+        if (o === e || o.dying > 0) continue;
+        const dx = e.mesh.position.x - o.mesh.position.x;
+        const dz = e.mesh.position.z - o.mesh.position.z;
+        const d2 = dx*dx + dz*dz;
+        const minD = e.elite || o.elite ? 2.2 : 1.1;
+        if (d2 < minD*minD && d2 > 0.001) {
+          const d = Math.sqrt(d2);
+          sx += (dx/d) * (minD - d);
+          sz += (dz/d) * (minD - d);
+        }
+      }
+      if (sx !== 0 || sz !== 0) {
+        e.mesh.position.x += sx * SEP_FORCE * dt;
+        e.mesh.position.z += sz * SEP_FORCE * dt;
+        clampToArena(e.mesh.position);
+      }
       e.mesh.lookAt(player.position.x, 0, player.position.z);
       e.mesh.position.y = e.ghost
         ? .35 + Math.sin(t*4 + e.bobSeed) * .2
         : Math.abs(Math.sin(t*8 + e.bobSeed)) * (e.elite ? .06 : .12);
+      // sombra do fantasma acompanha altura (mais longe = mais escura e menor)
+      if (e.ghost && e.mesh.userData.groundShadow) {
+        const altura = e.mesh.position.y;
+        const sc = Math.max(0.4, 1 - altura * 0.35);
+        e.mesh.userData.groundShadow.scale.set(sc, sc * .5, sc);
+        e.mesh.userData.groundShadow.material.opacity = Math.max(0.15, .55 - altura * .12);
+        // mantém sombra sempre no chão independente da posição Y do grupo
+        e.mesh.userData.groundShadow.position.y = -e.mesh.position.y + .03;
+      }
       if (e.elite && e.mesh.userData.bossLight) {
         e.mesh.userData.bossLight.intensity = 1 + Math.sin(t*5) * .6;   // luz vermelha pulsante
       }
@@ -3647,6 +3888,7 @@ function animate() {
     // --- Açaí ---
     acaiTimer -= dt;
     if (acaiTimer <= 0 && acais.length < 2) { spawnAcai(); acaiTimer = 11; }
+    tickCombo(dt);
     for (let i = acais.length - 1; i >= 0; i--) {
       const ac = acais[i];
       ac.rotation.y += dt * 2.2;
@@ -3659,8 +3901,11 @@ function animate() {
     }
     if (state.power > 0) {
       state.power -= dt;
-      aura.rotation.z += dt * 3;
-      aura.material.opacity = .5 + Math.sin(t*8) * .25;
+      aura.rotation.y += dt * 2.5;
+      aura.children.forEach((c, i) => {
+        c.material.opacity = .55 + Math.sin(t * 7 + i * 1.1) * .35;
+        c.scale.y = .8 + Math.sin(t * 9 + i * .9) * .3;
+      });
       updatePowerHud();
       if (state.power <= 0) clearPower();
     }
@@ -3750,9 +3995,12 @@ function animate() {
       playerGlow.color.setHex(0xfff1c9);
       playerGlow.emissive.setHex(0xffd166);
       aura.visible = true;
-      aura.material.color.setHex(0xffd166);
-      aura.rotation.z += dt * 5;
-      aura.material.opacity = .6 + Math.sin(t*10) * .25;
+      aura.children.forEach(c => c.material.color.setHex(0xffd166));
+      aura.rotation.y += dt * 4;
+      aura.children.forEach((c, i) => {
+        c.material.opacity = .6 + Math.sin(t * 10 + i * .8) * .3;
+        c.scale.y = .9 + Math.sin(t * 11 + i * 1.2) * .35;
+      });
       deusTick -= dt;
       if (deusTick <= 0) {                       // espinhos sagrados
         deusTick = .5;
@@ -3768,7 +4016,7 @@ function animate() {
         if (state.power > 0 && state.powerType) {
           const P = POWERS[state.powerType];
           playerGlow.color.setHex(P.cor); playerGlow.emissive.setHex(P.cor);
-          aura.material.color.setHex(P.cor);
+          aura.children.forEach(c => c.material.color.setHex(P.cor));
         } else {
           playerGlow.color.setHex(currentSkin.glow);
           playerGlow.emissive.setHex(currentSkin.glowE);
@@ -3790,6 +4038,15 @@ function animate() {
       } else if (h.userData.ttl <= 0) {
         scene.remove(h); heartDrops.splice(i, 1);
       }
+    }
+
+    // --- Peixes no lago ---
+    if (window._peixes) for (const p of window._peixes) {
+      p.fase += dt * p.vel;
+      p.mesh.position.x = p.lx + Math.cos(p.fase) * p.raio;
+      p.mesh.position.z = p.lz + Math.sin(p.fase) * p.raio;
+      p.mesh.position.y = .12 + Math.sin(t * 3 + p.fase) * .04;
+      p.mesh.rotation.y = -p.fase - (p.vel < 0 ? Math.PI : 0);
     }
 
     // --- Upgrades dropados (Gigante) ---
@@ -3888,7 +4145,7 @@ function animate() {
       reverso.spawnCd -= dt;
       if (reverso.spawnCd <= 0) {
         reverso.spawnCd = 4.5;
-        const qtd = 8 + Math.floor(Math.random() * 6);   // 8 a 13 gatos por vez
+        const qtd = 24 + Math.floor(Math.random() * 15);   // 24 a 38 gatos por vez
         for (let k = 0; k < qtd; k++) {
           const { g, mat } = buildGato();
           const ang = Math.random() * Math.PI * 2;
@@ -3919,7 +4176,12 @@ function animate() {
         c.atkCd = 1.2;
         damagePlayer(1);     // dano pequeno (1 só)
       }
-      // jogador pode esmagar os gatos atacando (morrem fácil)
+      // morre se o player está atacando e está perto (contato direto)
+      if (dist < 1.0 && state.attackT > 0) {
+        scene.remove(c.mesh); gatos.splice(i, 1);
+        sfx('hit'); state.kills++; updateKills();
+        continue;
+      }
     }
 
     // --- Nave alienígena (evento noturno) ---
