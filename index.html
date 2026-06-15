@@ -45,11 +45,6 @@
     opacity:0; pointer-events:none; transition:opacity .35s; text-align:center;
     width:92vw; max-width:600px; line-height:1.15; word-wrap:break-word; }
 
-  #combo { position:fixed; top:48%; left:50%; transform:translate(-50%,-50%) scale(1); z-index:11;
-    font-size:clamp(28px, 7vw, 58px); font-weight:900; letter-spacing:4px;
-    color:#ff4fc3; text-shadow:0 0 40px rgba(255,79,195,.9), 0 0 12px rgba(255,79,195,.6), 0 4px 0 rgba(0,0,0,.5);
-    opacity:0; pointer-events:none; transition:opacity .25s; text-align:center; }
-
   /* ---------- Dano (flash vermelho) ---------- */
   #dmg { position:fixed; inset:0; background:radial-gradient(circle, transparent 40%, rgba(255,0,40,.45) 100%);
     opacity:0; pointer-events:none; z-index:9; transition:opacity .12s; }
@@ -57,12 +52,12 @@
     width:110px; height:110px; display:none; z-index:10; pointer-events:none; }
 
   /* ---------- Controles touch ---------- */
-  #joyBase { position:fixed; left:26px; bottom:max(30px, env(safe-area-inset-bottom)); width:150px; height:150px;
-    border-radius:50%; background:rgba(255,255,255,.08); border:2px solid rgba(178,107,255,.4);
-    display:none; z-index:12; pointer-events:none; }
-  #joyStick { position:absolute; left:50%; top:50%; width:62px; height:62px; border-radius:50%;
-    background:rgba(178,107,255,.45); border:2px solid rgba(178,107,255,.9);
-    transform:translate(-50%,-50%); box-shadow:0 0 22px rgba(178,107,255,.6); pointer-events:none; }
+  #joyBase { position:fixed; left:26px; bottom:max(30px, env(safe-area-inset-bottom)); width:120px; height:120px;
+    border-radius:50%; background:rgba(255,255,255,.06); border:2px solid rgba(178,107,255,.35);
+    display:none; z-index:12; }
+  #joyStick { position:absolute; left:50%; top:50%; width:54px; height:54px; border-radius:50%;
+    background:rgba(178,107,255,.35); border:2px solid rgba(178,107,255,.8);
+    transform:translate(-50%,-50%); box-shadow:0 0 18px rgba(178,107,255,.5); }
   #atkBtn { position:fixed; right:30px; bottom:max(42px, env(safe-area-inset-bottom)); width:88px; height:88px;
     border-radius:50%; border:2px solid rgba(255,59,92,.7); background:rgba(255,59,92,.22);
     color:#fff; font-size:34px; display:none; z-index:12;
@@ -175,7 +170,6 @@
 <div id="bigMsg"></div>
 
 <div id="msg"></div>
-<div id="combo"></div>
 <div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 200px); right:16px; z-index:11; display:none; padding:4px 9px; border-radius:14px; background:rgba(8,12,24,.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); white-space:nowrap; pointer-events:none; font-size:11px; font-weight:700; color:#ffd166; letter-spacing:.2px;"></div>
 <div id="dmg"></div>
 <canvas id="minimap" width="220" height="220"></canvas>
@@ -250,7 +244,7 @@ const state = {
 };
 
 const keys = {};
-const joy = { active:false, id:null, dx:0, dy:0, originX:0, originY:0 };
+const joy = { active:false, id:null, dx:0, dy:0 };
 const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 let enemies = [], acais = [], heartDrops = [], beams = [], clouds = [], auras = [], novas = [], bombs = [], explosions = [], rainbowShots = [];
 
@@ -1618,7 +1612,6 @@ function buildPlayer() {
   player.add(playerLight);
 }
 buildPlayer();
-initCombo();
 
 function setSkin(id) {
   currentSkin = SKINS[id];
@@ -1666,14 +1659,12 @@ function spawnPosNearPlayer(minR, maxR) {
 
 // ---------- Monstros ----------
 const MONSTROS = {
-  esqueleto:   { hp:3,  dmg:1, vel:1,    kills:1, bar:1 },
-  mumia:       { hp:6,  dmg:1, vel:.65,  kills:2, bar:1 },
-  fantasma:    { hp:1,  dmg:1, vel:1.55, kills:1, bar:.8 },
-  zumbi:       { hp:4,  dmg:1, vel:.85,  kills:2, bar:1 },
-  gigante:     { hp:12, dmg:2, vel:.62,  kills:3, bar:1 },
-  alien:       { hp:3,  dmg:1, vel:1.1,  kills:1, bar:1 },
-  mumiaRainha: { hp:22, dmg:2, vel:.55,  kills:5, bar:1.4 },
-  zumbiGigante:{ hp:18, dmg:2, vel:.70,  kills:4, bar:1.3 },
+  esqueleto: { hp:3,  dmg:1, vel:1,    kills:1, bar:1 },
+  mumia:     { hp:6,  dmg:1, vel:.65,  kills:2, bar:1 },
+  fantasma:  { hp:1,  dmg:1, vel:1.55, kills:1, bar:.8 },
+  zumbi:     { hp:4,  dmg:1, vel:.85,  kills:2, bar:1 },
+  gigante:   { hp:12, dmg:2, vel:.62,  kills:3, bar:1 },
+  alien:     { hp:3,  dmg:1, vel:1.1,  kills:1, bar:1 },   // +1 aura por kill
 };
 
 function makeHealthBar(g, w) {
@@ -1792,13 +1783,6 @@ function buildFantasma() {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(.07, 8, 8), eyeMat);
     eye.position.set(x, 2.05, .36); g.add(eye);
   });
-  // sombra no chão para indicar posição
-  const shadow = new THREE.Mesh(new THREE.CircleGeometry(.5, 14),
-    new THREE.MeshBasicMaterial({ color:0x1a1a2e, transparent:true, opacity:.55, depthWrite:false }));
-  shadow.rotation.x = -Math.PI/2; shadow.position.y = .03;
-  shadow.scale.set(1, .5, 1);
-  g.add(shadow);
-  g.userData.groundShadow = shadow;
   return { g, mat };
 }
 
@@ -1838,32 +1822,21 @@ function buildZumbi() {
 function spawnMonster(speed, kind, pos) {
   const conf = MONSTROS[kind];
   let built;
-  if (kind === 'mumia' || kind === 'mumiaRainha') built = buildMumia();
+  if (kind === 'mumia') built = buildMumia();
   else if (kind === 'fantasma') built = buildFantasma();
-  else if (kind === 'zumbi' || kind === 'zumbiGigante') built = buildZumbi();
+  else if (kind === 'zumbi') built = buildZumbi();
   else if (kind === 'alien') built = buildAlien();
   else built = buildEsqueleto(kind === 'gigante');
   const { g, mat } = built;
   const barFg = makeHealthBar(g, conf.bar);
+  // Boss fica mais forte e maior a partir da onda 10
   let hpMult = 1, dmgBonus = 0, escala = 1;
   if (kind === 'gigante') {
-    // gigante escala HP progressivamente por onda, máximo 1 por onda
-    const hpBonus = Math.max(0, state.wave - 3) * 3;
-    escala = 1.85 + Math.max(0, state.wave - 3) * .06;
-    if (state.wave >= 10) { hpMult = 1.8; dmgBonus = 1; escala = 2.3; }
-    else { conf.hp = 12 + hpBonus; }
-    g.scale.setScalar(Math.min(escala, 2.3));
-  }
-  if (kind === 'mumiaRainha') {
-    g.scale.setScalar(1.8);
-    // cor dourada escura para a rainha
-    mat.color.setHex(0x9a7a20);
-    mat.emissive = new THREE.Color(0x4a3800);
-    mat.emissiveIntensity = .3;
-  }
-  if (kind === 'zumbiGigante') {
-    g.scale.setScalar(1.7);
-    mat.color.setHex(0x1a3a10);
+    escala = 1.85;
+    if (state.wave >= 10) {
+      hpMult = 1.8; dmgBonus = 1; escala = 2.3;     // boss aprimorado: +80% vida, +1 dano, maior
+    }
+    g.scale.setScalar(escala);
   }
   g.position.copy(pos || spawnPosNearPlayer(16, 24));
 
@@ -1871,7 +1844,7 @@ function spawnMonster(speed, kind, pos) {
   const e = { mesh:g, mat, barFg, kind,
     baseColor: mat.color.getHex(),
     hp:hpFinal, maxHp:hpFinal,
-    elite: kind === 'gigante' || kind === 'mumiaRainha' || kind === 'zumbiGigante',
+    elite: kind === 'gigante',
     ghost: kind === 'fantasma',
     alienReward: kind === 'alien',
     dmg: conf.dmg + dmgBonus, killsVal: conf.kills,
@@ -1936,26 +1909,7 @@ function startWave() {
 
   const count = 3 + state.wave * 2;
   const speed = Math.min(1.8 + state.wave * .18, 3.8);
-  const temGigante = state.wave >= 3;
-
-  // Mini bosses surpresa: onda 5 = Mumia Rainha, onda 7 = Zumbi Gigante
-  if (state.wave === 5) {
-    setTimeout(() => {
-      if (!state.playing) return;
-      spawnMonster(speed, 'mumiaRainha');
-      showMsg('👑 MUMIA RAINHA DESPERTA!');
-      sfx('wave');
-    }, 2200);
-  }
-  if (state.wave === 7) {
-    setTimeout(() => {
-      if (!state.playing) return;
-      spawnMonster(speed, 'zumbiGigante');
-      showMsg('🧟 ZUMBI COLOSSAL!');
-      sfx('wave');
-    }, 2200);
-  }
-
+  const elites = state.wave >= 3 ? Math.min(1 + Math.floor((state.wave - 3) / 2), 3) : 0;
   for (let i = 0; i < count; i++) setTimeout(() => {
     if (!state.playing) return;
     const r = Math.random();
@@ -1969,12 +1923,12 @@ function startWave() {
     else if (state.wave >= 2 && r < .58) kind = 'mumia';
     spawnMonster(speed, kind, pos);
   }, i * 420);
-  // máximo 1 gigante por onda, mais forte a cada onda
-  if (temGigante) setTimeout(() => {
+  for (let i = 0; i < elites; i++) setTimeout(() => {
     if (state.playing) spawnMonster(speed, 'gigante');
-  }, 1800);
-  const msgExtra = state.wave === 5 ? ' 👑 MUMIA RAINHA!' : state.wave === 7 ? ' 🧟 ZUMBI COLOSSAL!' : temGigante ? ' ⚠️ GIGANTE!' : '';
-  showMsg('ONDA ' + state.wave + msgExtra);
+  }, 1200 + i * 900);
+  showMsg(elites > 0
+    ? 'ONDA ' + state.wave + (state.wave >= 10 ? ' 💀 BOSS SOMBRIO!' : ' ⚠️ GIGANTE!')
+    : 'ONDA ' + state.wave);
   sfx('wave');
 }
 
@@ -2478,38 +2432,6 @@ function updateKills() {
   document.getElementById('kills').innerHTML = state.kills + ' <span>MONSTROS</span>';
 }
 let msgTimer;
-let comboCount = 0, comboTimer = 0, comboEl;
-function initCombo() { comboEl = document.getElementById('combo'); }
-function registerKillCombo() {
-  comboCount++;
-  comboTimer = 2.2;
-  if (comboCount >= 3) {
-    const tier = comboCount >= 10 ? '🔥 x' + comboCount + ' INSANO!' :
-                 comboCount >= 6  ? '💥 x' + comboCount + ' COMBO!' :
-                                    '⚡ x' + comboCount + ' COMBO!';
-    comboEl.textContent = tier;
-    comboEl.style.opacity = 1;
-    comboEl.style.transform = 'translate(-50%,-50%) scale(1.18)';
-    setTimeout(() => { comboEl.style.transform = 'translate(-50%,-50%) scale(1)'; }, 120);
-    // bônus de aura por combo
-    const bonus = comboCount >= 10 ? 3 : comboCount >= 6 ? 2 : 1;
-    state.aura += bonus;
-    if (state.aura >= auraMilestone) {
-      const t2 = Math.min(3, Math.round(auraMilestone / 10));
-      auraMilestone += 10; triggerSupremo(t2);
-    }
-    updateAuraHud();
-  }
-}
-function tickCombo(dt) {
-  if (comboTimer > 0) {
-    comboTimer -= dt;
-    if (comboTimer <= 0) {
-      comboCount = 0;
-      comboEl.style.opacity = 0;
-    }
-  }
-}
 function showMsg(t) {
   const el = document.getElementById('msg');
   el.textContent = t; el.style.opacity = 1;
@@ -2948,7 +2870,6 @@ function hurtEnemy(e, dmg, dir, kb) {
     e.dying = .6;
     state.kills += e.killsVal;
     updateKills();
-    registerKillCombo();
     sfx('death');
     if (e.alienReward) {                                            // alien morto dá +1 aura
       state.aura++;
@@ -3011,12 +2932,9 @@ function hurtGatos(range, allDir, fwd) {
     const to = c.mesh.position.clone().sub(player.position); to.y = 0;
     const dist = to.length();
     if (dist > range) continue;
-    // gatos são pequenos: cone de ataque mais generoso (.0 em vez de .25) e sem dist mínima
-    if (!allDir && fwd && dist > 0.1 && fwd.dot(to.clone().normalize()) < 0) continue;
+    if (!allDir && fwd && fwd.dot(to.clone().normalize()) < .25 && dist > 1.2) continue;
     scene.remove(c.mesh); gatos.splice(i, 1);
-    sfx('hit');
-    state.kills++;
-    updateKills();
+    if (typeof sfx === 'function') sfx('hit');
   }
 }
 
@@ -3297,22 +3215,15 @@ document.getElementById('sndBtn').addEventListener('touchstart', e => {
 const joyBase = document.getElementById('joyBase');
 const joyStick = document.getElementById('joyStick');
 
-const JOY_RADIUS = 60; // raio do base em px
-const JOY_KNOB   = 55; // máximo de deslocamento do knob
-
+function joyCenter() {
+  const r = joyBase.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
 addEventListener('touchstart', e => {
   for (const t of e.changedTouches) {
     if (t.clientX < innerWidth * .5 && !joy.active) {
       joy.active = true; joy.id = t.identifier;
-      joy.originX = t.clientX; joy.originY = t.clientY;
-      // posiciona o base onde o dedo tocou
-      joyBase.style.left   = (t.clientX - JOY_RADIUS) + 'px';
-      joyBase.style.top    = (t.clientY - JOY_RADIUS) + 'px';
-      joyBase.style.bottom = 'unset';
-      joyBase.style.width  = (JOY_RADIUS * 2) + 'px';
-      joyBase.style.height = (JOY_RADIUS * 2) + 'px';
-      joyStick.style.transform = 'translate(-50%,-50%)';
-      joy.dx = 0; joy.dy = 0;
+      updateJoy(t);
     }
   }
 }, { passive:false });
@@ -3322,18 +3233,8 @@ function nonJoyTouches(e) {
 }
 addEventListener('touchmove', e => {
   e.preventDefault();
-  for (const t of e.changedTouches) {
-    if (joy.active && t.identifier === joy.id) {
-      let dx = t.clientX - joy.originX;
-      let dy = t.clientY - joy.originY;
-      const len = Math.hypot(dx, dy);
-      const clamped = Math.min(len, JOY_KNOB);
-      if (len > 0) { dx = dx/len * clamped; dy = dy/len * clamped; }
-      joy.dx = dx / JOY_KNOB;
-      joy.dy = dy / JOY_KNOB;
-      joyStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    }
-  }
+  for (const t of e.changedTouches)
+    if (joy.active && t.identifier === joy.id) updateJoy(t);
   // pinça para zoom (dois dedos que não sejam o joystick)
   const pts = nonJoyTouches(e);
   if (pts.length >= 2) {
@@ -3347,20 +3248,21 @@ addEventListener('touchmove', e => {
   }
 }, { passive:false });
 addEventListener('touchend', e => {
-  for (const t of e.changedTouches) {
+  for (const t of e.changedTouches)
     if (t.identifier === joy.id) {
       joy.active = false; joy.dx = 0; joy.dy = 0;
       joyStick.style.transform = 'translate(-50%,-50%)';
-      // restaura posição original do base
-      joyBase.style.left   = '26px';
-      joyBase.style.top    = 'unset';
-      joyBase.style.bottom = 'max(30px, env(safe-area-inset-bottom))';
-      joyBase.style.width  = '150px';
-      joyBase.style.height = '150px';
     }
-  }
   if (nonJoyTouches(e).length < 2) pinchDist = null;
 });
+function updateJoy(t) {
+  const c = joyCenter();
+  let dx = t.clientX - c.x, dy = t.clientY - c.y;
+  const len = Math.hypot(dx, dy), max = 48;
+  if (len > max) { dx = dx/len*max; dy = dy/len*max; }
+  joy.dx = dx/max; joy.dy = dy/max;
+  joyStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+}
 document.getElementById('atkBtn').addEventListener('touchstart', e => {
   e.preventDefault(); e.stopPropagation(); attack();
 }, { passive:false });
@@ -3670,7 +3572,7 @@ function animate() {
     if (keys['KeyD'] || keys['ArrowRight']) mx += 1;
     mx += joy.dx; mz += joy.dy;
     const mlen = Math.hypot(mx, mz);
-    const moving = mlen > .05;
+    const moving = mlen > .15;
     if (moving) {
       mx /= Math.max(mlen, 1); mz /= Math.max(mlen, 1);
       const spd = PLAYER_SPEED * (1 + upgrades.vel)
@@ -3837,41 +3739,10 @@ function animate() {
         e.mesh.position.x = np.x;
         e.mesh.position.z = np.z;
       }
-      // --- Separação: empurra monstros que estejam se sobrepondo ---
-      const SEP_RADIUS = e.elite ? 2.0 : 1.1;
-      const SEP_FORCE  = e.elite ? 1.8 : 2.2;
-      let sx = 0, sz = 0;
-      for (let j = 0; j < enemies.length; j++) {
-        const o = enemies[j];
-        if (o === e || o.dying > 0) continue;
-        const dx = e.mesh.position.x - o.mesh.position.x;
-        const dz = e.mesh.position.z - o.mesh.position.z;
-        const d2 = dx*dx + dz*dz;
-        const minD = e.elite || o.elite ? 2.2 : 1.1;
-        if (d2 < minD*minD && d2 > 0.001) {
-          const d = Math.sqrt(d2);
-          sx += (dx/d) * (minD - d);
-          sz += (dz/d) * (minD - d);
-        }
-      }
-      if (sx !== 0 || sz !== 0) {
-        e.mesh.position.x += sx * SEP_FORCE * dt;
-        e.mesh.position.z += sz * SEP_FORCE * dt;
-        clampToArena(e.mesh.position);
-      }
       e.mesh.lookAt(player.position.x, 0, player.position.z);
       e.mesh.position.y = e.ghost
         ? .35 + Math.sin(t*4 + e.bobSeed) * .2
         : Math.abs(Math.sin(t*8 + e.bobSeed)) * (e.elite ? .06 : .12);
-      // sombra do fantasma acompanha altura (mais longe = mais escura e menor)
-      if (e.ghost && e.mesh.userData.groundShadow) {
-        const altura = e.mesh.position.y;
-        const sc = Math.max(0.4, 1 - altura * 0.35);
-        e.mesh.userData.groundShadow.scale.set(sc, sc * .5, sc);
-        e.mesh.userData.groundShadow.material.opacity = Math.max(0.15, .55 - altura * .12);
-        // mantém sombra sempre no chão independente da posição Y do grupo
-        e.mesh.userData.groundShadow.position.y = -e.mesh.position.y + .03;
-      }
       if (e.elite && e.mesh.userData.bossLight) {
         e.mesh.userData.bossLight.intensity = 1 + Math.sin(t*5) * .6;   // luz vermelha pulsante
       }
@@ -3888,7 +3759,6 @@ function animate() {
     // --- Açaí ---
     acaiTimer -= dt;
     if (acaiTimer <= 0 && acais.length < 2) { spawnAcai(); acaiTimer = 11; }
-    tickCombo(dt);
     for (let i = acais.length - 1; i >= 0; i--) {
       const ac = acais[i];
       ac.rotation.y += dt * 2.2;
@@ -4145,7 +4015,7 @@ function animate() {
       reverso.spawnCd -= dt;
       if (reverso.spawnCd <= 0) {
         reverso.spawnCd = 4.5;
-        const qtd = 24 + Math.floor(Math.random() * 15);   // 24 a 38 gatos por vez
+        const qtd = 8 + Math.floor(Math.random() * 6);   // 8 a 13 gatos por vez
         for (let k = 0; k < qtd; k++) {
           const { g, mat } = buildGato();
           const ang = Math.random() * Math.PI * 2;
@@ -4176,12 +4046,7 @@ function animate() {
         c.atkCd = 1.2;
         damagePlayer(1);     // dano pequeno (1 só)
       }
-      // morre se o player está atacando e está perto (contato direto)
-      if (dist < 1.0 && state.attackT > 0) {
-        scene.remove(c.mesh); gatos.splice(i, 1);
-        sfx('hit'); state.kills++; updateKills();
-        continue;
-      }
+      // jogador pode esmagar os gatos atacando (morrem fácil)
     }
 
     // --- Nave alienígena (evento noturno) ---
