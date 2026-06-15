@@ -548,8 +548,16 @@ function buildCity() {
   });
 
   // CAMINHOS internos em cruz
-  const pathMat = new THREE.MeshStandardMaterial({ color:0x4a3c2e, roughness:1 });
-  [[0,0,3.4,ARENA*2],[0,0,ARENA*2,3.4]].forEach(([x,z,w,d]) => {
+  const pathTex = makeTexture((x,w,h) => {
+    x.fillStyle = '#3a3228'; x.fillRect(0,0,w,h);
+    for (let i = 0; i < 600; i++) {
+      const v = 48 + Math.floor(Math.random()*20);
+      x.fillStyle = `rgba(${v},${v-6},${v-12},.5)`;
+      x.fillRect(Math.random()*w, Math.random()*h, 3, 3);
+    }
+  }, 128, 128, 4, 20);
+  const pathMat = new THREE.MeshStandardMaterial({ map:pathTex, roughness:1 });
+  [[0,0,3.4,ARENA*2],[0,0,ARENA*2,3.4]].forEach(([x,z,w,d], i) => {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(w,d), pathMat);
     p.rotation.x = -Math.PI/2; p.position.set(x,.02,z); p.receiveShadow = true; scene.add(p);
   });
@@ -636,7 +644,7 @@ function buildCity() {
     if (Math.hypot(px + 30, pz - 26) < 10) continue;                   // parquinho
     if (Math.hypot(px - 10, pz + 42) < 13) continue;                   // lago
     if (Math.hypot(px - 30, pz + 30) < 13) continue;                   // palco do festival
-    if (Math.hypot(px + 20, pz - 42) < 9) continue;                     // bar
+    if (Math.hypot(px + 34, pz - 4) < 9) continue;                     // buteco
     if (Math.hypot(px, pz) < 5) continue;                              // fonte
     tree(kinds[placed % kinds.length], px, pz);
     placed++;
@@ -1004,66 +1012,6 @@ function buildParquinho() {
   gira.position.set(PX, 0, PZ + 3.6);
   obstacles.push({ x:PX, z:PZ + 3.6, r:1.5 });
   scene.add(gira);
-
-  // Gangorra
-  const gang = new THREE.Group();
-  const pivô = new THREE.Mesh(new THREE.BoxGeometry(.12, .8, .12),
-    new THREE.MeshStandardMaterial({ color:0x4d4d52 }));
-  pivô.position.y = .4; gang.add(pivô);
-  const tábua = new THREE.Mesh(new THREE.BoxGeometry(3.8, .1, .35),
-    new THREE.MeshStandardMaterial({ color:0xe24b4a, roughness:.7 }));
-  tábua.position.y = .82; tábua.rotation.z = .18; gang.add(tábua);
-  [-1.7, 1.7].forEach(sx => {
-    const cab = new THREE.Mesh(new THREE.SphereGeometry(.18, 8, 8),
-      new THREE.MeshStandardMaterial({ color:0xffd166 }));
-    cab.position.set(sx * (sx > 0 ? 1 : -1), .82 + Math.abs(sx) * .18 * Math.sign(sx), 0);
-    gang.add(cab);
-  });
-  gang.position.set(PX + 2, 0, PZ + 5);
-  obstacles.push({ x:PX + 2, z:PZ + 5, r:2 });
-  scene.add(gang);
-
-  // Trepa-trepa (escada horizontal)
-  const trepa = new THREE.Group();
-  const poleMat2 = new THREE.MeshStandardMaterial({ color:0x2d6cdf, roughness:.5 });
-  [[-1.1, 0], [1.1, 0]].forEach(([sx]) => {
-    const lat = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, 2.5, 8), poleMat2);
-    lat.position.set(sx, 1.8, 0); trepa.add(lat);
-  });
-  for (let i = 0; i < 5; i++) {
-    const deg = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, 2.2, 8),
-      new THREE.MeshStandardMaterial({ color:0xf0a02f }));
-    deg.rotation.z = Math.PI/2;
-    deg.position.set(0, .8 + i*.42, 0); trepa.add(deg);
-  }
-  trepa.position.set(PX - 4.5, 0, PZ + 4);
-  obstacles.push({ x:PX - 4.5, z:PZ + 4, r:1.4 });
-  scene.add(trepa);
-
-  // Caixa de areia com baldinho
-  const caixa = new THREE.Group();
-  const borda1 = new THREE.Mesh(new THREE.BoxGeometry(3, .3, .2),
-    new THREE.MeshStandardMaterial({ color:0x8a6a45, roughness:1 }));
-  const borda2 = borda1.clone();
-  borda1.position.set(0, .15, -1.3); caixa.add(borda1);
-  borda2.position.set(0, .15,  1.3); caixa.add(borda2);
-  [[-1.4, 0], [1.4, 0]].forEach(([sx]) => {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(.2, .3, 2.6),
-      new THREE.MeshStandardMaterial({ color:0x8a6a45, roughness:1 }));
-    b.position.set(sx, .15, 0); caixa.add(b);
-  });
-  const areiaCx = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6),
-    new THREE.MeshStandardMaterial({ color:0xe8d8a8, roughness:1 }));
-  areiaCx.rotation.x = -Math.PI/2; areiaCx.position.y = .02; caixa.add(areiaCx);
-  // baldinho
-  const balde = new THREE.Mesh(new THREE.CylinderGeometry(.18, .13, .32, 8),
-    new THREE.MeshStandardMaterial({ color:0xd9342b, roughness:.6 }));
-  balde.position.set(.5, .37, .4); caixa.add(balde);
-  const pázinha = new THREE.Mesh(new THREE.BoxGeometry(.08, .5, .06),
-    new THREE.MeshStandardMaterial({ color:0xffd166 }));
-  pázinha.position.set(-.4, .35, -.3); pázinha.rotation.z = .4; caixa.add(pázinha);
-  caixa.position.set(PX + 4.5, 0, PZ + 4.5);
-  scene.add(caixa);
 }
 
 // ---------- Lago ----------
@@ -1114,28 +1062,6 @@ function buildLago() {
       new THREE.MeshStandardMaterial({ color:0x8e8b80, roughness:1 }));
     pedra.position.set(LX + Math.cos(a)*(LR + 1.4), .2, LZ + Math.sin(a)*(LR + 1.4));
     pedra.scale.y = .6; pedra.castShadow = true; scene.add(pedra);
-  }
-
-  // PEIXES animados (nadam em círculo dentro do lago)
-  const peixeCores = [0xff6b6b, 0xffd166, 0x4ade80, 0x22d3ee, 0xff9f1c, 0xf472b6];
-  window._peixes = [];
-  for (let i = 0; i < 6; i++) {
-    const g = new THREE.Group();
-    const corpo = new THREE.Mesh(new THREE.SphereGeometry(.28, 8, 6),
-      new THREE.MeshStandardMaterial({ color:peixeCores[i], roughness:.4, metalness:.1 }));
-    corpo.scale.set(1.6, .7, 1); g.add(corpo);
-    const cauda = new THREE.Mesh(new THREE.ConeGeometry(.22, .38, 4),
-      new THREE.MeshStandardMaterial({ color:peixeCores[i], roughness:.4 }));
-    cauda.rotation.z = Math.PI/2; cauda.position.x = -.42; g.add(cauda);
-    const olho = new THREE.Mesh(new THREE.SphereGeometry(.06, 6, 6),
-      new THREE.MeshBasicMaterial({ color:0x111111 }));
-    olho.position.set(.25, .1, .22); g.add(olho);
-    const raio = rand(2.5, LR - 1.5);
-    const fase = (i / 6) * Math.PI * 2;
-    const vel = rand(.4, .9) * (Math.random() < .5 ? 1 : -1);
-    g.position.set(LX + Math.cos(fase) * raio, .12, LZ + Math.sin(fase) * raio);
-    scene.add(g);
-    window._peixes.push({ mesh:g, raio, fase, vel, lx:LX, lz:LZ });
   }
 }
 buildFeira(); buildParquinho(); buildLago();
@@ -1214,7 +1140,7 @@ buildPalco();
 
 // ---------- Buteco do Infinity ----------
 function buildButeco() {
-  const BX = -20, BZ = 42;
+  const BX = -34, BZ = 4;
   // piso de cimento queimado
   const piso = new THREE.Mesh(new THREE.CircleGeometry(7, 24),
     new THREE.MeshStandardMaterial({ color:0x6b5d4f, roughness:.95 }));
@@ -1299,7 +1225,7 @@ function buildScatter() {
     if (Math.hypot(x - 32, z - 16) < 9) return true;             // feira
     if (Math.hypot(x + 30, z - 26) < 10) return true;            // parquinho
     if (Math.hypot(x - 10, z + 42) < 13) return true;            // lago
-    if (Math.hypot(x + 20, z - 42) < 9) return true;              // bar
+    if (Math.hypot(x + 34, z - 4) < 9) return true;              // buteco
     if (Math.hypot(x - 30, z + 30) < 13) return true;            // palco (área ampla)
     return false;
   };
@@ -2448,7 +2374,7 @@ const QUEST_LOCAIS = [
   { nome:'QUADRA',    x:17,  z:-17 },
   { nome:'PRAÇA',     x:0,   z:14 },
   { nome:'RUA',       x:-14, z:-30 },
-  { nome:'BAR',    x:-20, z:42 },
+  { nome:'BAR',    x:-34, z:4 },
 ];
 const quest = { ativa:false, caixas:[], total:0, pegas:0, tempo:0, tempoMax:0, cooldown:6 };
 
@@ -3908,15 +3834,6 @@ function animate() {
       } else if (h.userData.ttl <= 0) {
         scene.remove(h); heartDrops.splice(i, 1);
       }
-    }
-
-    // --- Peixes no lago ---
-    if (window._peixes) for (const p of window._peixes) {
-      p.fase += dt * p.vel;
-      p.mesh.position.x = p.lx + Math.cos(p.fase) * p.raio;
-      p.mesh.position.z = p.lz + Math.sin(p.fase) * p.raio;
-      p.mesh.position.y = .12 + Math.sin(t * 3 + p.fase) * .04;
-      p.mesh.rotation.y = -p.fase - (p.vel < 0 ? Math.PI : 0);
     }
 
     // --- Upgrades dropados (Gigante) ---
