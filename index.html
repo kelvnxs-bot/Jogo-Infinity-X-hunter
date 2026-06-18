@@ -118,7 +118,7 @@
     .home-title { font-size:clamp(22px, 8vw, 30px); letter-spacing:1px; }
     .home-tagline { font-size:10px; letter-spacing:2px; margin-top:4px; }
     .tabs-row { margin-top:12px; padding:3px; gap:3px; }
-    .tab-btn { padding:9px 2px; font-size:10px; letter-spacing:0; white-space:nowrap; }
+    .tab-btn { padding:8px 1px; font-size:8.5px; letter-spacing:0; white-space:nowrap; }
     .tab-panel { margin-top:14px; }
     .skins-label, .nick-label { font-size:10px; letter-spacing:2px; margin-top:14px; }
     #skinPreview { width:130px; height:130px; }
@@ -176,15 +176,15 @@
   }
   .home-tagline { margin-top:6px; font-size:12px; letter-spacing:3px; text-transform:uppercase;
     color:rgba(255,255,255,.4); font-weight:600; }
-  .tabs-row { display:flex; gap:6px; margin-top:16px; background:rgba(255,255,255,.05);
-    border-radius:14px; padding:4px; width:min(420px, 92vw);
+  .tabs-row { display:flex; gap:5px; margin-top:16px; background:rgba(255,255,255,.05);
+    border-radius:14px; padding:4px; width:min(480px, 94vw);
     border:1px solid rgba(255,255,255,.07); backdrop-filter:blur(6px); }
-  .tab-btn { flex:1; padding:10px 4px; border-radius:10px; border:none; background:transparent;
-    color:rgba(255,255,255,.5); font-size:12px; font-weight:800; letter-spacing:.5px; cursor:pointer;
+  .tab-btn { flex:1; padding:10px 3px; border-radius:10px; border:none; background:transparent;
+    color:rgba(255,255,255,.5); font-size:11px; font-weight:800; letter-spacing:.3px; cursor:pointer;
     transition:background .25s, color .25s, box-shadow .25s; }
   .tab-btn.active { background:linear-gradient(95deg, rgba(178,107,255,.32), rgba(124,77,255,.22));
     color:#fff; box-shadow:0 0 14px rgba(178,107,255,.35); }
-  .tab-panel { display:none; width:min(420px, 92vw); margin-top:20px;
+  .tab-panel { display:none; width:min(480px, 94vw); margin-top:20px;
     animation: panelIn .3s ease; }
   @keyframes panelIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
   .tab-panel.active { display:flex; flex-direction:column; align-items:center; }
@@ -200,6 +200,14 @@
   .powers-list b.p1 { color:#b26bff; } .powers-list b.p2 { color:#ff9f1c; } .powers-list b.p3 { color:#ff3b5c; }
   .controls-hint { margin-top:18px; color:rgba(255,255,255,.45); font-size:13px; line-height:1.8; letter-spacing:.5px; }
   .skins-label { margin-top:20px; font-size:12px; font-weight:800; letter-spacing:3px; color:rgba(255,255,255,.55); }
+  .event-card { margin-top:14px; padding:24px 22px; border-radius:20px; width:min(320px, 86vw);
+    background:linear-gradient(160deg, rgba(255,79,195,.1), rgba(167,139,250,.08));
+    border:1px solid rgba(255,79,195,.25); }
+  .event-emoji { font-size:40px; }
+  .event-title { margin-top:8px; font-size:17px; font-weight:900; letter-spacing:.5px;
+    background:linear-gradient(95deg,#ff4fc3,#ffd166); -webkit-background-clip:text;
+    background-clip:text; -webkit-text-fill-color:transparent; }
+  .event-desc { margin-top:8px; font-size:12.5px; line-height:1.6; color:rgba(255,255,255,.65); }
   #skinPreview { width:160px; height:160px; border-radius:20px;
     background:radial-gradient(ellipse at 50% 35%, rgba(178,107,255,.12), transparent 70%);
     border:1px solid rgba(255,255,255,.08); }
@@ -284,14 +292,24 @@
     <button class="tab-btn active" data-tab="jogar">JOGAR</button>
     <button class="tab-btn" data-tab="skins">SKINS</button>
     <button class="tab-btn" data-tab="info">COMO JOGAR</button>
+    <button class="tab-btn" data-tab="eventos">EVENTOS</button>
     <button class="tab-btn" data-tab="rank">RANKING</button>
   </div>
 
-  <div class="tab-panel active" data-panel="jogar" style="padding-bottom:24px;">
+  <div class="tab-panel active" data-panel="jogar">
     <div class="nick-label">SEU NICK</div>
     <input id="nickInput" maxlength="20" spellcheck="false" autocomplete="off">
     <button class="btn" id="startBtn">COMEÇAR</button>
-    <button class="btn" id="bdayBtn" style="margin-top:14px; background:linear-gradient(95deg,#ff4fc3,#ffd166,#a78bfa); font-size:15px; box-shadow:0 0 18px rgba(255,79,195,.35);">🎂 ANIVERSÁRIO INFINITY</button>
+  </div>
+
+  <div class="tab-panel" data-panel="eventos">
+    <div class="skins-label">EVENTO ESPECIAL</div>
+    <div class="event-card">
+      <div class="event-emoji">🎂</div>
+      <div class="event-title">Aniversário Infinity</div>
+      <div class="event-desc">Modo comemorativo sem combate — só celebração visual com música.</div>
+      <button class="btn" id="bdayBtn" style="margin-top:16px; background:linear-gradient(95deg,#ff4fc3,#ffd166,#a78bfa); font-size:15px; box-shadow:0 0 18px rgba(255,79,195,.35);">🎂 ENTRAR NO EVENTO</button>
+    </div>
   </div>
 
   <div class="tab-panel" data-panel="skins">
