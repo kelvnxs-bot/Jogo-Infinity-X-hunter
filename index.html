@@ -110,6 +110,25 @@
   }
   @keyframes twinkle { 0% { opacity:.6; } 100% { opacity:1; } }
   @keyframes floatGlow { 0% { transform:translate(0,0); } 100% { transform:translate(-2%, 2%); } }
+  /* celular em retrato: tela estreita — compacta tudo */
+  @media (max-width:480px) {
+    .screen { padding:18px 14px; }
+    .home-logo .sword-emoji { font-size:26px; }
+    .home-title { font-size:clamp(22px, 8vw, 30px); letter-spacing:1px; }
+    .home-tagline { font-size:10px; letter-spacing:2px; margin-top:4px; }
+    .tabs-row { margin-top:12px; padding:3px; gap:3px; }
+    .tab-btn { padding:9px 2px; font-size:10px; letter-spacing:0; white-space:nowrap; }
+    .tab-panel { margin-top:14px; }
+    .skins-label, .nick-label { font-size:10px; letter-spacing:2px; margin-top:14px; }
+    #skinPreview { width:130px; height:130px; }
+    .skin-btn { padding:8px 12px; font-size:11px; }
+    .skins-row { gap:7px; }
+    #nickInput { padding:10px 16px; font-size:14px; }
+    .btn { padding:13px 38px; font-size:15px; letter-spacing:2px; margin-top:18px; }
+    .info-line { font-size:12px; line-height:1.9; }
+    #rankList, #homeRank { width:94vw; }
+    .rk-row { font-size:12px; padding:5px 10px; }
+  }
   /* quando a tela é baixa (celular deitado), alinha ao topo e permite rolar */
   @media (max-height:560px) {
     .screen { justify-content:flex-start; padding:14px 24px 28px; }
@@ -1751,48 +1770,100 @@ function setSkin(id) {
     b.classList.toggle('sel', b.dataset.skin === id));
 }
 document.querySelectorAll('.skin-btn').forEach(b =>
-  b.addEventListener('click', () => { setSkin(b.dataset.skin); updateSkinPreview(b.dataset.skin); }));
+  b.addEventListener('click', () => { setSkin(b.dataset.skin); try { updateSkinPreview(b.dataset.skin); } catch(e){} }));
 
-// ---------- Mini preview 3D do personagem na aba Skins ----------
+// ---------- Mini preview 3D do personagem na aba Skins (fiel ao buildPlayer real) ----------
 let previewScene, previewCamera, previewRenderer, previewGroup, previewRAF = null;
 function initSkinPreview() {
-  const cv = document.getElementById('skinPreview');
-  previewScene = new THREE.Scene();
-  previewCamera = new THREE.PerspectiveCamera(35, 1, .1, 20);
-  previewCamera.position.set(0, 1.3, 4.2);
-  previewCamera.lookAt(0, 1.1, 0);
-  previewRenderer = new THREE.WebGLRenderer({ canvas:cv, antialias:true, alpha:true });
-  previewRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  previewRenderer.setSize(200, 200, false);
-  previewScene.add(new THREE.AmbientLight(0xffffff, .9));
-  const dl = new THREE.DirectionalLight(0xffffff, .8);
-  dl.position.set(2, 4, 3); previewScene.add(dl);
+  try {
+    const cv = document.getElementById('skinPreview');
+    if (!cv) return;
+    previewScene = new THREE.Scene();
+    previewCamera = new THREE.PerspectiveCamera(32, 1, .1, 20);
+    previewCamera.position.set(0, 1.95, 4.6);
+    previewCamera.lookAt(0, 1.55, 0);
+    previewRenderer = new THREE.WebGLRenderer({ canvas:cv, antialias:true, alpha:true });
+    previewRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    previewRenderer.setSize(200, 200, false);
+    previewScene.add(new THREE.AmbientLight(0xffffff, 1.0));
+    const dl = new THREE.DirectionalLight(0xffffff, .9);
+    dl.position.set(2, 4, 3); previewScene.add(dl);
 
-  previewGroup = new THREE.Group();
-  const armorMat = new THREE.MeshStandardMaterial({ roughness:.45, metalness:.3 });
-  const armorLightMat = new THREE.MeshStandardMaterial({ roughness:.4, metalness:.35 });
-  const capeMat = new THREE.MeshStandardMaterial({ roughness:.7, side:THREE.DoubleSide });
-  const glowMat = new THREE.MeshStandardMaterial({ emissive:0xffffff, emissiveIntensity:1.2 });
+    const mk = (w,h,d,m) => new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
+    const pArmor       = new THREE.MeshStandardMaterial({ roughness:.85 });
+    const pArmorLight  = new THREE.MeshStandardMaterial({ roughness:.85 });
+    const pBoot        = new THREE.MeshStandardMaterial({ color:0x0b0813, roughness:.85 });
+    const pGlow        = new THREE.MeshStandardMaterial({ emissive:0xffffff, emissiveIntensity:2.2, roughness:.15, metalness:.3 });
+    const pHood        = new THREE.MeshStandardMaterial({ roughness:.9 });
+    const pCape        = new THREE.MeshStandardMaterial({ roughness:.9, side:THREE.DoubleSide });
+    const pBelt        = new THREE.MeshStandardMaterial({ color:0x35284f, roughness:.85 });
 
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(.62, .85, .4), armorMat);
-  torso.position.y = 1.0; previewGroup.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.28, 14, 12), armorLightMat);
-  head.position.y = 1.62; previewGroup.add(head);
-  const visor1 = new THREE.Mesh(new THREE.BoxGeometry(.22, .05, .02), glowMat);
-  visor1.rotation.z = Math.PI/4; visor1.position.set(0, 1.64, .27); previewGroup.add(visor1);
-  const visor2 = visor1.clone(); visor2.rotation.z = -Math.PI/4; previewGroup.add(visor2);
-  [-.42, .42].forEach(x => {
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(.18, .65, .18), armorMat);
-    arm.position.set(x, .95, 0); previewGroup.add(arm);
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(.2, .55, .2), armorLightMat);
-    leg.position.set(x*.55, .28, 0); previewGroup.add(leg);
-  });
-  const cape = new THREE.Mesh(new THREE.PlaneGeometry(.55, .9), capeMat);
-  cape.position.set(0, .95, -.24); cape.rotation.x = .15; previewGroup.add(cape);
-  previewGroup.userData = { armorMat, armorLightMat, capeMat, glowMat, head };
+    previewGroup = new THREE.Group();
 
-  previewScene.add(previewGroup);
-  animatePreview();
+    // Pernas
+    const leftLeg  = mk(.28, .8, .3, pArmor);  leftLeg.geometry.translate(0,-.4,0);  leftLeg.position.set(-.18, 1.05, 0);
+    const rightLeg = mk(.28, .8, .3, pArmor);  rightLeg.geometry.translate(0,-.4,0); rightLeg.position.set(.18, 1.05, 0);
+    const shoeL = mk(.3, .18, .45, pBoot); shoeL.position.set(0,-.85,.07); leftLeg.add(shoeL);
+    const shoeR = mk(.3, .18, .45, pBoot); shoeR.position.set(0,-.85,.07); rightLeg.add(shoeR);
+    previewGroup.add(leftLeg, rightLeg);
+
+    // Torso + X + cinto
+    const torso = mk(.85, .95, .45, pArmorLight); torso.position.y = 1.55;
+    const xBar1 = new THREE.Mesh(new THREE.BoxGeometry(.55, .09, .02), pGlow);
+    xBar1.rotation.z = Math.PI/4; xBar1.position.set(0, .08, .235); torso.add(xBar1);
+    const xBar2 = xBar1.clone(); xBar2.rotation.z = -Math.PI/4; torso.add(xBar2);
+    const belt = mk(.87, .12, .47, pBelt); belt.position.y = -.45; torso.add(belt);
+    previewGroup.add(torso);
+
+    // Capa
+    const cape = mk(.85, 1.4, .06, pCape);
+    cape.position.set(0, 1.45, -.3); cape.rotation.x = .12;
+    previewGroup.add(cape);
+
+    // Cabeça + capuz + visor + rosto
+    const head = mk(.55, .55, .55, pArmor); head.position.y = 2.35;
+    const hood = new THREE.Mesh(new THREE.ConeGeometry(.48, .55, 4), pHood);
+    hood.position.y = .4; hood.rotation.y = Math.PI/4; head.add(hood);
+    const v1 = new THREE.Mesh(new THREE.BoxGeometry(.28, .06, .02), pGlow);
+    v1.rotation.z = Math.PI/4; v1.position.set(0, .03, .285); head.add(v1);
+    const v2 = v1.clone(); v2.rotation.z = -Math.PI/4; head.add(v2);
+    const eyeMat = new THREE.MeshBasicMaterial({ color:0xd4a8ff });
+    [-.1, .1].forEach(x => {
+      const eye = new THREE.Mesh(new THREE.BoxGeometry(.07, .07, .02), eyeMat);
+      eye.position.set(x, .1, .286); head.add(eye);
+    });
+    const mouth = new THREE.Mesh(new THREE.BoxGeometry(.14, .03, .02),
+      new THREE.MeshBasicMaterial({ color:0x9b5cf6 }));
+    mouth.position.set(0, -.08, .286); head.add(mouth);
+    previewGroup.add(head);
+
+    // Braços + espada
+    const leftArm = mk(.22, .75, .25, pArmorLight); leftArm.geometry.translate(0,-.32,0); leftArm.position.set(-.55, 1.95, 0);
+    const handL = mk(.2,.2,.2, pBoot); handL.position.y = -.72; leftArm.add(handL);
+    previewGroup.add(leftArm);
+
+    const rightArm = mk(.22, .75, .25, pArmorLight); rightArm.geometry.translate(0,-.32,0); rightArm.position.set(.55, 1.95, 0);
+    const handR = mk(.2,.2,.2, pBoot); handR.position.y = -.72; rightArm.add(handR);
+
+    const sword = new THREE.Group();
+    const grip = mk(.08,.3,.08, pBoot);
+    const guard = mk(.34,.06,.1, new THREE.MeshStandardMaterial({ color:0x4a3a6b, metalness:.6, roughness:.3 }));
+    guard.position.y = .18;
+    const swordGlow = new THREE.Mesh(new THREE.BoxGeometry(.1,1.5,.03), pGlow);
+    swordGlow.position.y = .95;
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(.07,.25,4), pGlow);
+    tip.position.y = 1.78;
+    sword.add(grip, guard, swordGlow, tip);
+    sword.position.y = -.75; sword.rotation.x = Math.PI/2.2;
+    rightArm.add(sword);
+    previewGroup.add(rightArm);
+
+    previewGroup.userData = { pArmor, pArmorLight, pBoot, pGlow, pHood, pCape };
+    previewScene.add(previewGroup);
+    animatePreview();
+  } catch (err) {
+    console.warn('Preview de skin indisponível:', err);
+  }
 }
 function animatePreview() {
   if (!previewGroup) return;
@@ -1803,16 +1874,22 @@ function animatePreview() {
 function updateSkinPreview(id) {
   if (!previewGroup) return;
   const sk = SKINS[id];
-  const { armorMat, armorLightMat, capeMat, glowMat } = previewGroup.userData;
-  armorMat.color.setHex(sk.armor);
-  armorLightMat.color.setHex(sk.armorLight);
-  glowMat.emissive.setHex(sk.glowE);
-  capeMat.map = null;
-  capeMat.color.setHex(sk.cape.color || 0x333333);
-  capeMat.needsUpdate = true;
+  const { pArmor, pArmorLight, pGlow, pHood, pCape } = previewGroup.userData;
+  pArmor.color.setHex(sk.armor);
+  pArmorLight.color.setHex(sk.armorLight);
+  pHood.color.setHex(sk.cape.color || 0x0d0a16);
+  pGlow.emissive.setHex(sk.glowE);
+  pGlow.color.setHex(sk.glow);
+  if (sk.cape.flag) {
+    pCape.map = sk.cape.flag === 'usa' ? texUSA : texBR;
+    pCape.color.setHex(0xffffff);
+  } else {
+    pCape.map = null;
+    pCape.color.setHex(sk.cape.color);
+  }
+  pCape.needsUpdate = true;
 }
-initSkinPreview();
-updateSkinPreview('cacador');
+try { initSkinPreview(); updateSkinPreview('cacador'); } catch (err) { console.warn('Preview indisponível:', err); }
 
 // ---------- Posição de spawn perto (mas não em cima) do jogador ----------
 function spawnPosNearPlayer(minR, maxR) {
@@ -3802,6 +3879,7 @@ const JOY_RADIUS = 60; // raio do base em px
 const JOY_KNOB   = 55; // máximo de deslocamento do knob
 
 addEventListener('touchstart', e => {
+  if (!state.playing) return;   // não captura toques nos menus/telas
   for (const t of e.changedTouches) {
     if (t.clientX < innerWidth * .5 && !joy.active) {
       joy.active = true; joy.id = t.identifier;
@@ -3822,6 +3900,7 @@ function nonJoyTouches(e) {
   return Array.from(e.touches).filter(t => t.identifier !== joy.id);
 }
 addEventListener('touchmove', e => {
+  if (!state.playing) return;
   e.preventDefault();
   for (const t of e.changedTouches) {
     if (joy.active && t.identifier === joy.id) {
