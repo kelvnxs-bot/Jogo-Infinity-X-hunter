@@ -26,6 +26,12 @@
     background:rgba(255,255,255,.15); overflow:hidden; }
   #powerFill { height:100%; width:100%; background:#b26bff; }
   #powerName { display:none; margin-top:3px; font-size:10px; font-weight:700; letter-spacing:1px; color:rgba(255,255,255,.8); }
+  #buffsHud { display:flex; gap:6px; margin-top:4px; }
+  .buff-chip { display:flex; align-items:center; gap:3px; padding:2px 7px; border-radius:10px;
+    font-size:10px; font-weight:700; letter-spacing:.5px; }
+  .buff-chip.coca { background:rgba(217,30,40,.25); border:1px solid rgba(255,80,90,.6); color:#ff8088; }
+  .buff-chip.energ { background:rgba(173,255,47,.18); border:1px solid rgba(190,255,80,.6); color:#cfff6a; }
+  .buff-chip.shield { background:rgba(79,195,247,.2); border:1px solid rgba(120,210,255,.6); color:#9fe0ff; }
   #auraCount { margin-top:5px; font-size:12px; font-weight:800; letter-spacing:1px; color:#ffd166; }
   #bigMsg { position:fixed; top:42%; left:50%; transform:translate(-50%,-50%) scale(.8); z-index:15;
     font-size:clamp(38px, 11vw, 92px); font-weight:900; letter-spacing:8px; text-align:center; white-space:nowrap;
@@ -54,14 +60,6 @@
   #dmg { position:fixed; inset:0; background:radial-gradient(circle, transparent 40%, rgba(255,0,40,.45) 100%);
     opacity:0; pointer-events:none; z-index:9; transition:opacity .12s; }
 
-  /* ---------- Guabuada overlay ---------- */
-  #guabuada { position:fixed; inset:0; z-index:20; pointer-events:none;
-    background:white; opacity:0; transition:opacity .15s; }
-  #guabuadaMsg { position:fixed; top:42%; left:50%; transform:translate(-50%,-50%);
-    z-index:21; pointer-events:none; opacity:0; transition:opacity .2s;
-    font-size:clamp(36px, 9vw, 80px); font-weight:900; letter-spacing:6px;
-    color:#000; text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff, 4px -4px 0 #fff, -4px 4px 0 #fff,
-      0 0 40px rgba(0,0,0,.4); font-style:italic; text-align:center; }
   #minimap { position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 86px); right:16px;
     width:110px; height:110px; display:none; z-index:10; pointer-events:none; }
 
@@ -87,24 +85,39 @@
   /* ---------- Telas ---------- */
   .screen { position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
     align-items:center; justify-content:center; text-align:center; padding:24px;
-    overflow-y:auto; -webkit-overflow-scrolling:touch;
+    overflow-y:auto; -webkit-overflow-scrolling:touch; overflow-x:hidden;
     background:radial-gradient(ellipse at 50% 30%, #16203d 0%, #070a14 75%); }
+  .screen::before, .screen::after { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; }
+  .screen#startScreen::before {
+    background-image:
+      radial-gradient(2px 2px at 8% 18%, rgba(255,255,255,.55), transparent),
+      radial-gradient(1.5px 1.5px at 22% 65%, rgba(255,255,255,.4), transparent),
+      radial-gradient(2px 2px at 38% 12%, rgba(178,107,255,.6), transparent),
+      radial-gradient(1.5px 1.5px at 52% 78%, rgba(255,255,255,.45), transparent),
+      radial-gradient(2px 2px at 68% 30%, rgba(255,255,255,.5), transparent),
+      radial-gradient(1.5px 1.5px at 80% 60%, rgba(124,77,255,.55), transparent),
+      radial-gradient(2px 2px at 92% 15%, rgba(255,255,255,.4), transparent),
+      radial-gradient(1.5px 1.5px at 14% 88%, rgba(255,255,255,.4), transparent),
+      radial-gradient(2px 2px at 60% 92%, rgba(255,79,195,.5), transparent),
+      radial-gradient(1.5px 1.5px at 88% 85%, rgba(255,255,255,.4), transparent);
+    animation: twinkle 5s ease-in-out infinite alternate;
+  }
+  .screen#startScreen::after {
+    background:
+      radial-gradient(circle at 18% 22%, rgba(178,107,255,.10), transparent 38%),
+      radial-gradient(circle at 82% 78%, rgba(255,59,92,.08), transparent 38%);
+    animation: floatGlow 9s ease-in-out infinite alternate;
+  }
+  @keyframes twinkle { 0% { opacity:.6; } 100% { opacity:1; } }
+  @keyframes floatGlow { 0% { transform:translate(0,0); } 100% { transform:translate(-2%, 2%); } }
   /* quando a tela é baixa (celular deitado), alinha ao topo e permite rolar */
   @media (max-height:560px) {
     .screen { justify-content:flex-start; padding:14px 24px 28px; }
-    #startScreen { display:flex; flex-direction:column; }
-    .title { font-size:clamp(24px,6vw,40px) !important; margin-top:4px; order:1; }
-    .subtitle { display:none; }
-    .powers-list { display:none; }
-    .sword-emoji { font-size:26px !important; margin-bottom:2px !important; order:0; }
-    .skins-label { margin-top:10px !important; order:2; }
-    .skins-row { margin-top:8px !important; order:3; }
-    .nick-label { margin-top:10px !important; order:4; }
-    #nickInput { order:5; }
-    .controls-hint { display:none; }
-    /* botão COMEÇAR fica logo após o nick, sempre visível sem rolar muito */
-    .btn { margin-top:14px !important; order:6; }
-    #homeRank { margin-top:14px !important; order:7; }
+    .home-title { font-size:clamp(22px,6vw,34px) !important; }
+    .home-logo .sword-emoji { font-size:24px !important; }
+    .tabs-row { margin-top:10px; }
+    .tab-panel { margin-top:12px; }
+    .btn { margin-top:14px !important; }
     /* tela de game over em landscape: stats e ranking compactos */
     #gameover #finalStats { font-size:13px !important; line-height:1.6; margin-top:8px; }
     #gameover #rankList { margin-top:8px; }
@@ -112,13 +125,8 @@
   /* paisagem muito baixa: deixa ainda mais enxuto */
   @media (max-height:430px) {
     .screen { justify-content:flex-start; padding:10px 20px 80px; }
-    .sword-emoji { display:none; }
-    .title { font-size:22px !important; margin-top:2px; }
-    .skins-label { margin-top:8px !important; font-size:10px !important; }
-    .skins-row { margin-top:6px !important; }
-    .skin-btn { padding:7px 12px !important; font-size:12px !important; }
-    .nick-label { margin-top:8px !important; }
-    #homeRank { display:none; }
+    .home-logo .sword-emoji { display:none; }
+    .home-title { font-size:20px !important; }
     /* botão fixo no rodapé: sempre visível, não some ao deitar o celular */
     #startScreen .btn {
       position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
@@ -133,6 +141,36 @@
     #gameover #rankList { display:none; }
     #gameover #finalStats { font-size:12px !important; line-height:1.5; margin-top:6px; }
   }
+  /* ---------- Tabs da tela inicial ---------- */
+  .home-logo { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:4px; }
+  .home-logo .sword-emoji { font-size:34px; margin:0; display:inline-block;
+    animation: swordFloat 2.6s ease-in-out infinite; filter:drop-shadow(0 0 10px rgba(178,107,255,.5)); }
+  @keyframes swordFloat { 0%,100% { transform:translateY(0) rotate(-3deg); } 50% { transform:translateY(-5px) rotate(3deg); } }
+  .home-title { font-size:clamp(26px, 7vw, 44px); font-weight:900; letter-spacing:2px; line-height:1.05;
+    background:linear-gradient(95deg, #b26bff 20%, #7c4dff 55%, #ff3b5c 85%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    animation: titleGlow 3s ease-in-out infinite alternate; }
+  @keyframes titleGlow {
+    0%   { filter:drop-shadow(0 0 14px rgba(178,107,255,.3)); }
+    100% { filter:drop-shadow(0 0 28px rgba(178,107,255,.6)); }
+  }
+  .home-tagline { margin-top:6px; font-size:12px; letter-spacing:3px; text-transform:uppercase;
+    color:rgba(255,255,255,.4); font-weight:600; }
+  .tabs-row { display:flex; gap:6px; margin-top:16px; background:rgba(255,255,255,.05);
+    border-radius:14px; padding:4px; width:min(420px, 92vw);
+    border:1px solid rgba(255,255,255,.07); backdrop-filter:blur(6px); }
+  .tab-btn { flex:1; padding:10px 4px; border-radius:10px; border:none; background:transparent;
+    color:rgba(255,255,255,.5); font-size:12px; font-weight:800; letter-spacing:.5px; cursor:pointer;
+    transition:background .25s, color .25s, box-shadow .25s; }
+  .tab-btn.active { background:linear-gradient(95deg, rgba(178,107,255,.32), rgba(124,77,255,.22));
+    color:#fff; box-shadow:0 0 14px rgba(178,107,255,.35); }
+  .tab-panel { display:none; width:min(420px, 92vw); margin-top:20px;
+    animation: panelIn .3s ease; }
+  @keyframes panelIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+  .tab-panel.active { display:flex; flex-direction:column; align-items:center; }
+  .info-line { font-size:13px; color:rgba(255,255,255,.78); line-height:2.1; text-align:center; }
+  .info-line b.p1 { color:#b26bff; } .info-line b.p2 { color:#ff9f1c; } .info-line b.p3 { color:#ff3b5c; }
+
   .title { font-size:clamp(34px, 9vw, 72px); font-weight:900; letter-spacing:4px; line-height:1.05;
     background:linear-gradient(95deg, #b26bff 20%, #7c4dff 55%, #ff3b5c 85%);
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
@@ -142,6 +180,9 @@
   .powers-list b.p1 { color:#b26bff; } .powers-list b.p2 { color:#ff9f1c; } .powers-list b.p3 { color:#ff3b5c; }
   .controls-hint { margin-top:18px; color:rgba(255,255,255,.45); font-size:13px; line-height:1.8; letter-spacing:.5px; }
   .skins-label { margin-top:20px; font-size:12px; font-weight:800; letter-spacing:3px; color:rgba(255,255,255,.55); }
+  #skinPreview { width:160px; height:160px; border-radius:20px;
+    background:radial-gradient(ellipse at 50% 35%, rgba(178,107,255,.12), transparent 70%);
+    border:1px solid rgba(255,255,255,.08); }
   .skins-row { margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
   .skin-btn { display:flex; align-items:center; gap:8px; padding:10px 16px; border-radius:30px;
     background:rgba(255,255,255,.06); border:2px solid rgba(255,255,255,.15);
@@ -165,7 +206,12 @@
   .rk-loading { color:rgba(255,255,255,.5); font-size:13px; }
   .btn { margin-top:26px; padding:16px 52px; font-size:18px; font-weight:800; letter-spacing:3px;
     color:#fff; background:linear-gradient(90deg, #b26bff, #7c4dff); border:none; border-radius:50px;
-    box-shadow:0 0 32px rgba(178,107,255,.55); cursor:pointer; }
+    box-shadow:0 0 32px rgba(178,107,255,.55); cursor:pointer; transition:transform .15s; }
+  #startBtn { animation: btnPulse 2.4s ease-in-out infinite; }
+  @keyframes btnPulse {
+    0%, 100% { box-shadow:0 0 32px rgba(178,107,255,.55); }
+    50%      { box-shadow:0 0 48px rgba(178,107,255,.85); }
+  }
   .btn:active { transform:scale(.96); }
   #gameover { display:none; }
   #gameover .title { background:linear-gradient(95deg, #ff3b5c, #ff8c42);
@@ -183,6 +229,7 @@
     <div id="hearts"></div>
     <div id="powerBar"><div id="powerFill"></div></div>
     <div id="powerName"></div>
+    <div id="buffsHud"></div>
     <div id="auraCount">⚡ AURA 0/10</div>
   </div>
   <div class="hud-card" id="stats">
@@ -198,8 +245,6 @@
 <div id="combo"></div>
 <div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 200px); right:16px; z-index:11; display:none; padding:4px 9px; border-radius:14px; background:rgba(8,12,24,.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); white-space:nowrap; pointer-events:none; font-size:11px; font-weight:700; color:#ffd166; letter-spacing:.2px;"></div>
 <div id="dmg"></div>
-<div id="guabuada"></div>
-<div id="guabuadaMsg">Expansão de Domínio "Guabuada"!!</div>
 <canvas id="minimap" width="220" height="220"></canvas>
 
 <div id="joyBase"><div id="joyStick"></div></div>
@@ -211,26 +256,49 @@
 <audio id="bdayMusic" src="parabens.mp3" preload="auto"></audio>
 
 <div class="screen" id="startScreen">
-  <div class="sword-emoji">⚔️</div>
-  <div class="title">INFINITY × HUNTER</div>
-  <div class="subtitle">Um caçador entre dimensões chegou à cidade. Derrote as ondas de esqueletos — e cuidado com os <b>GIGANTES</b>.</div>
-  <div class="powers-list">🍇 Açaís comuns: <b class="p1">● CORTE</b> <b class="p2">● MARTELO</b> <b class="p3">● LASER</b><br>
-    Açaís raros: <b style="color:#ffe14d">● MINIGUN</b> &nbsp; <b style="color:#84cc16">● BOMBAS</b><br>
-    ⚡ Acumule auras: 10, 20... e aos 30, <b style="color:#ffd166">AURA DO ANJO CAÍDO</b></div>
-  <div class="skins-label">ESCOLHA SUA SKIN</div>
-  <div class="skins-row">
-    <button class="skin-btn sel" data-skin="cacador"><span class="dot" style="background:#b26bff"></span>CAÇADOR</button>
-    <button class="skin-btn" data-skin="patriota"><span class="dot" style="background:linear-gradient(180deg,#b22234 33%,#fff 33%,#fff 66%,#3c3b6e 66%)"></span>PATRIOTA</button>
-    <button class="skin-btn" data-skin="brasil"><span class="dot" style="background:linear-gradient(180deg,#009c3b 50%,#ffdf00 50%)"></span>BRASIL</button>
-    <button class="skin-btn" data-skin="unicornio"><span class="dot" style="background:linear-gradient(90deg,#ff4fc3,#ffd166,#4ade80,#22d3ee,#a78bfa)"></span>🦄 UNICÓRNIO</button>
+  <div class="home-logo"><span class="sword-emoji">⚔️</span></div>
+  <div class="home-title">INFINITY × HUNTER</div>
+  <div class="home-tagline">um caçador entre dimensões</div>
+
+  <div class="tabs-row">
+    <button class="tab-btn active" data-tab="jogar">JOGAR</button>
+    <button class="tab-btn" data-tab="skins">SKINS</button>
+    <button class="tab-btn" data-tab="info">COMO JOGAR</button>
+    <button class="tab-btn" data-tab="rank">RANKING</button>
   </div>
-  <div class="nick-label">SEU NICK</div>
-  <input id="nickInput" maxlength="20" spellcheck="false" autocomplete="off">
-  <div class="controls-hint" id="hintDesktop">🎮 W A S D — mover &nbsp;|&nbsp; ESPAÇO — pular &nbsp;|&nbsp; CLIQUE ou J — atacar</div>
-  <div class="controls-hint" id="hintTouch" style="display:none">🕹️ Joystick — mover &nbsp;|&nbsp; ↑ — pular &nbsp;|&nbsp; ⚔️ — atacar</div>
-  <button class="btn" id="startBtn">COMEÇAR</button>
-  <button class="btn" id="bdayBtn" style="margin-top:10px; background:linear-gradient(95deg,#ff4fc3,#ffd166,#a78bfa); font-size:15px;">🎂 ANIVERSÁRIO INFINITY</button>
-  <div id="homeRank" style="margin-top:22px; width:min(330px, 84vw);"></div>
+
+  <div class="tab-panel active" data-panel="jogar">
+    <div class="nick-label">SEU NICK</div>
+    <input id="nickInput" maxlength="20" spellcheck="false" autocomplete="off">
+    <button class="btn" id="startBtn">COMEÇAR</button>
+    <button class="btn" id="bdayBtn" style="margin-top:10px; background:linear-gradient(95deg,#ff4fc3,#ffd166,#a78bfa); font-size:15px;">🎂 ANIVERSÁRIO INFINITY</button>
+  </div>
+
+  <div class="tab-panel" data-panel="skins">
+    <canvas id="skinPreview" width="200" height="200"></canvas>
+    <div class="skins-label">ESCOLHA SUA SKIN</div>
+    <div class="skins-row">
+      <button class="skin-btn sel" data-skin="cacador"><span class="dot" style="background:#b26bff"></span>CAÇADOR</button>
+      <button class="skin-btn" data-skin="patriota"><span class="dot" style="background:linear-gradient(180deg,#b22234 33%,#fff 33%,#fff 66%,#3c3b6e 66%)"></span>PATRIOTA</button>
+      <button class="skin-btn" data-skin="brasil"><span class="dot" style="background:linear-gradient(180deg,#009c3b 50%,#ffdf00 50%)"></span>BRASIL</button>
+      <button class="skin-btn" data-skin="unicornio"><span class="dot" style="background:linear-gradient(90deg,#ff4fc3,#ffd166,#4ade80,#22d3ee,#a78bfa)"></span>🦄 UNICÓRNIO</button>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-panel="info">
+    <div class="info-line">
+      Um caçador entre dimensões chegou à cidade.<br>Derrote as ondas — cuidado com os <b>GIGANTES</b>.<br><br>
+      🍇 Açaís comuns: <b class="p1">CORTE</b> <b class="p2">MARTELO</b> <b class="p3">LASER</b><br>
+      Açaís raros: <b style="color:#ffe14d">MINIGUN</b> <b style="color:#84cc16">BOMBAS</b><br>
+      🥤⚡🛡️ Latas: dano, velocidade e escudo<br><br>
+      🎮 W A S D — mover &nbsp;|&nbsp; ESPAÇO — pular &nbsp;|&nbsp; CLIQUE/J — atacar<br>
+      🕹️ Joystick — mover &nbsp;|&nbsp; ↑ — pular &nbsp;|&nbsp; ⚔️ — atacar
+    </div>
+  </div>
+
+  <div class="tab-panel" data-panel="rank">
+    <div id="homeRank" style="width:min(330px, 84vw);"></div>
+  </div>
 </div>
 
 <div class="screen" id="gameover">
@@ -272,12 +340,13 @@ const state = {
   hp:MAX_HP, kills:0, wave:0,
   invuln:0, attackT:0, attackCd:0, didHit:false,
   power:0, powerType:null, aura:0, deus:0,
+  buffCoca:0, buffEnerg:0, shield:false, shieldTimer:0,
 };
 
 const keys = {};
 const joy = { active:false, id:null, dx:0, dy:0, originX:0, originY:0 };
 const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-let enemies = [], acais = [], heartDrops = [], beams = [], clouds = [], auras = [], novas = [], bombs = [], explosions = [], rainbowShots = [];
+let enemies = [], acais = [], latas = [], heartDrops = [], beams = [], clouds = [], auras = [], novas = [], bombs = [], explosions = [], rainbowShots = [];
 
 // ---------- Cena ----------
 const scene = new THREE.Scene();
@@ -1443,7 +1512,7 @@ let currentSkin = SKINS.cacador;
 
 // ---------- Jogador: INFINITY × HUNTER ----------
 const player = new THREE.Group();
-let rightArm, leftArm, rightLeg, leftLeg, sword, swordGlow, hammer, minigunMesh, bombHand, aura, playerGlow;
+let rightArm, leftArm, rightLeg, leftLeg, sword, swordGlow, hammer, minigunMesh, bombHand, aura, playerGlow, shieldMesh;
 let matArmor, matArmorLight, matBoot, capeMesh, unicornParts, wand, playerLight;
 
 function buildPlayer() {
@@ -1591,6 +1660,12 @@ function buildPlayer() {
   aura.visible = false;
   player.add(aura);
 
+  // Esfera de escudo (visível quando state.shield = true)
+  shieldMesh = new THREE.Mesh(new THREE.SphereGeometry(1.15, 16, 12),
+    new THREE.MeshBasicMaterial({ color:0x4fc3f7, transparent:true, opacity:.28, side:THREE.DoubleSide }));
+  shieldMesh.position.y = 1.1; shieldMesh.visible = false;
+  player.add(shieldMesh);
+
   // ---------- Peças de UNICÓRNIO (escondidas por padrão) ----------
   unicornParts = new THREE.Group();
   // Chifre dourado espiralado
@@ -1676,7 +1751,68 @@ function setSkin(id) {
     b.classList.toggle('sel', b.dataset.skin === id));
 }
 document.querySelectorAll('.skin-btn').forEach(b =>
-  b.addEventListener('click', () => setSkin(b.dataset.skin)));
+  b.addEventListener('click', () => { setSkin(b.dataset.skin); updateSkinPreview(b.dataset.skin); }));
+
+// ---------- Mini preview 3D do personagem na aba Skins ----------
+let previewScene, previewCamera, previewRenderer, previewGroup, previewRAF = null;
+function initSkinPreview() {
+  const cv = document.getElementById('skinPreview');
+  previewScene = new THREE.Scene();
+  previewCamera = new THREE.PerspectiveCamera(35, 1, .1, 20);
+  previewCamera.position.set(0, 1.3, 4.2);
+  previewCamera.lookAt(0, 1.1, 0);
+  previewRenderer = new THREE.WebGLRenderer({ canvas:cv, antialias:true, alpha:true });
+  previewRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  previewRenderer.setSize(200, 200, false);
+  previewScene.add(new THREE.AmbientLight(0xffffff, .9));
+  const dl = new THREE.DirectionalLight(0xffffff, .8);
+  dl.position.set(2, 4, 3); previewScene.add(dl);
+
+  previewGroup = new THREE.Group();
+  const armorMat = new THREE.MeshStandardMaterial({ roughness:.45, metalness:.3 });
+  const armorLightMat = new THREE.MeshStandardMaterial({ roughness:.4, metalness:.35 });
+  const capeMat = new THREE.MeshStandardMaterial({ roughness:.7, side:THREE.DoubleSide });
+  const glowMat = new THREE.MeshStandardMaterial({ emissive:0xffffff, emissiveIntensity:1.2 });
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(.62, .85, .4), armorMat);
+  torso.position.y = 1.0; previewGroup.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.28, 14, 12), armorLightMat);
+  head.position.y = 1.62; previewGroup.add(head);
+  const visor1 = new THREE.Mesh(new THREE.BoxGeometry(.22, .05, .02), glowMat);
+  visor1.rotation.z = Math.PI/4; visor1.position.set(0, 1.64, .27); previewGroup.add(visor1);
+  const visor2 = visor1.clone(); visor2.rotation.z = -Math.PI/4; previewGroup.add(visor2);
+  [-.42, .42].forEach(x => {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(.18, .65, .18), armorMat);
+    arm.position.set(x, .95, 0); previewGroup.add(arm);
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(.2, .55, .2), armorLightMat);
+    leg.position.set(x*.55, .28, 0); previewGroup.add(leg);
+  });
+  const cape = new THREE.Mesh(new THREE.PlaneGeometry(.55, .9), capeMat);
+  cape.position.set(0, .95, -.24); cape.rotation.x = .15; previewGroup.add(cape);
+  previewGroup.userData = { armorMat, armorLightMat, capeMat, glowMat, head };
+
+  previewScene.add(previewGroup);
+  animatePreview();
+}
+function animatePreview() {
+  if (!previewGroup) return;
+  previewGroup.rotation.y += .012;
+  previewRenderer.render(previewScene, previewCamera);
+  previewRAF = requestAnimationFrame(animatePreview);
+}
+function updateSkinPreview(id) {
+  if (!previewGroup) return;
+  const sk = SKINS[id];
+  const { armorMat, armorLightMat, capeMat, glowMat } = previewGroup.userData;
+  armorMat.color.setHex(sk.armor);
+  armorLightMat.color.setHex(sk.armorLight);
+  glowMat.emissive.setHex(sk.glowE);
+  capeMat.map = null;
+  capeMat.color.setHex(sk.cape.color || 0x333333);
+  capeMat.needsUpdate = true;
+}
+initSkinPreview();
+updateSkinPreview('cacador');
 
 // ---------- Posição de spawn perto (mas não em cima) do jogador ----------
 function spawnPosNearPlayer(minR, maxR) {
@@ -2344,6 +2480,67 @@ function spawnAcai(atPos) {
   acais.push(g); scene.add(g);
 }
 
+const BUFF_DURATION = 20;
+const LATAS_INFO = {
+  coca:   { cor:0xd91e28, corTampa:0xe8e8e8, nome:'COCA-COLA · +1 DANO',        emoji:'🥤' },
+  energ:  { cor:0x9fe830, corTampa:0x2a2a2a, nome:'ENERGÉTICO · +40% VELOCIDADE', emoji:'⚡' },
+  escudo: { cor:0x4fc3f7, corTampa:0xcfeeff, nome:'ESCUDO · BLOQUEIA 1 GOLPE',   emoji:'🛡️' },
+};
+const LATAS_TIPOS = ['coca', 'energ', 'escudo'];
+
+function makeEmojiSprite(emoji) {
+  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 128;
+  const cx = cv.getContext('2d');
+  cx.font = '92px Arial'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.fillText(emoji, 64, 70);
+  const tex = new THREE.CanvasTexture(cv);
+  const mat = new THREE.SpriteMaterial({ map:tex, transparent:true });
+  const spr = new THREE.Sprite(mat);
+  spr.scale.set(.9, .9, 1);
+  return spr;
+}
+
+function spawnLata(atPos) {
+  const tipo = LATAS_TIPOS[Math.floor(Math.random() * LATAS_TIPOS.length)];
+  const info = LATAS_INFO[tipo];
+  const g = new THREE.Group();
+  const corpo = new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, .6, 14),
+    new THREE.MeshStandardMaterial({ color:info.cor, roughness:.3, metalness:.6,
+      emissive:info.cor, emissiveIntensity:.35 }));
+  corpo.position.y = .38; corpo.castShadow = true; g.add(corpo);
+  const tampa = new THREE.Mesh(new THREE.CylinderGeometry(.245, .245, .04, 14),
+    new THREE.MeshStandardMaterial({ color:info.corTampa, roughness:.3, metalness:.8 }));
+  tampa.position.y = .68; g.add(tampa);
+  const tampaB = tampa.clone(); tampaB.position.y = .08; g.add(tampaB);
+  // emoji flutuante grande acima da lata — reconhecível à distância
+  const spr = makeEmojiSprite(info.emoji);
+  spr.position.y = 1.35;
+  g.add(spr);
+  g.userData.sprite = spr;
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.42, .54, 18),
+    new THREE.MeshBasicMaterial({ color:info.cor, side:THREE.DoubleSide, transparent:true, opacity:.8 }));
+  ring.rotation.x = -Math.PI/2; ring.position.y = .03; g.add(ring);
+  const luz = new THREE.PointLight(info.cor, .9, 6, 2);
+  luz.position.y = .7; g.add(luz);
+
+  g.position.copy(atPos || spawnPosNearPlayer(8, 20));
+  g.userData.tipo = tipo;
+  latas.push(g); scene.add(g);
+}
+
+function updateBuffsHud() {
+  const el = document.getElementById('buffsHud');
+  let html = '';
+  if (state.buffCoca > 0)  html += `<div class="buff-chip coca">🥤 ${Math.ceil(state.buffCoca)}s</div>`;
+  if (state.buffEnerg > 0) html += `<div class="buff-chip energ">⚡ ${Math.ceil(state.buffEnerg)}s</div>`;
+  if (state.shield)        html += `<div class="buff-chip shield">🛡️ ${Math.ceil(state.shieldTimer)}s</div>`;
+  el.innerHTML = html;
+}
+
+function updateShieldVisual() {
+  if (shieldMesh) shieldMesh.visible = state.shield;
+}
+
 function setPower(type) {
   const P = POWERS[type];
   state.powerType = type;
@@ -2479,63 +2676,8 @@ function checkAuraMilestone() {
   if (state.aura < auraMilestone) return;
   const milestone = auraMilestone;
   auraMilestone += 10;
-  if (milestone === 50) {
-    triggerGuabuada();
-  } else {
-    const tier = Math.min(3, Math.round(milestone / 10));
-    triggerSupremo(tier);
-  }
-}
-
-const GUABUADA_DURATION = 10;
-let guabuadaAtiva = false;
-
-function triggerGuabuada() {
-  if (guabuadaAtiva || supremoAtivo) return;
-  guabuadaAtiva = true;
-  supremoAtivo = true;
-  state.invuln = GUABUADA_DURATION + 1;
-  sfx('riser');
-  addShake(.8);
-
-  // Overlay branco
-  const overlay = document.getElementById('guabuada');
-  const msgEl   = document.getElementById('guabuadaMsg');
-  overlay.style.opacity = '0.92';
-  // Filtro manga/quadrinhos no canvas 3D
-  renderer.domElement.style.transition = 'filter .15s';
-  renderer.domElement.style.filter = 'grayscale(1) contrast(6) brightness(1.6)';
-
-  // Mensagem
-  setTimeout(() => {
-    msgEl.style.opacity = '1';
-    showMsg('💢 Expansão de Domínio "Guabuada"!!');
-  }, 100);
-
-  // Congelar todos os inimigos
-  for (const e of enemies) {
-    e.frozen = true;
-    e._colorAntes = e.mat.color.getHex();
-    e.mat.color.setHex(0xa8d8ff);   // azul gelo
-    if (e.mat.emissive) e.mat.emissive.setHex(0x4488cc);
-  }
-
-  // Descongelar após 10s
-  setTimeout(() => {
-    guabuadaAtiva = false;
-    supremoAtivo = false;
-    overlay.style.opacity = '0';
-    msgEl.style.opacity = '0';
-    renderer.domElement.style.filter = 'none';
-    for (const e of enemies) {
-      e.frozen = false;
-      if (e._colorAntes !== undefined) {
-        e.mat.color.setHex(e._colorAntes);
-        if (e.mat.emissive) e.mat.emissive.setHex(0x000000);
-      }
-    }
-    showMsg('💢 GUABUADA encerrada');
-  }, GUABUADA_DURATION * 1000);
+  const tier = Math.min(3, Math.round(milestone / 10));
+  triggerSupremo(tier);
 }
 
 function novaSuprema(dmg, raio, cor) {
@@ -3006,7 +3148,7 @@ function fireRainbow() {
     const proj = new THREE.Mesh(new THREE.SphereGeometry(.22, 8, 8),
       new THREE.MeshBasicMaterial({ color:cor }));
     proj.position.copy(player.position); proj.position.y = 1.6;
-    rainbowShots.push({ mesh:proj, dir, vida:1.6, dano:1 + upgrades.dano });
+    rainbowShots.push({ mesh:proj, dir, vida:1.6, dano:1 + upgrades.dano + (state.buffCoca > 0 ? 1 : 0) });
     scene.add(proj);
   }
   sfx('rainbow');
@@ -3053,6 +3195,7 @@ function applyHit() {
   if (type === 'corte')   { range = 4;   dmg = 3; allDirections = true; }
   if (type === 'martelo') { range = 4.8; dmg = 2; allDirections = true; kb = 3.2; addShake(.45); }
   dmg += upgrades.dano;                              // bônus permanente de boss
+  if (state.buffCoca > 0) dmg += 1;                  // buff de Coca-Cola: +1 dano
   if (upgrades.giratorio) { range = Math.max(range, 3.4); allDirections = true; }  // ataque giratório acerta 360°
 
   for (const e of enemies) {
@@ -3103,7 +3246,7 @@ function fireLaser() {
     if (along < 0 || along > 22) continue;
     const perp = to.clone().sub(fwd.clone().multiplyScalar(along)).length();
     if (perp > 1.4) continue;
-    hurtEnemy(e, 2, fwd.clone(), 2);
+    hurtEnemy(e, 2 + (state.buffCoca > 0 ? 1 : 0), fwd.clone(), 2);
     // faísca no ponto de impacto
     const spark = new THREE.Mesh(new THREE.SphereGeometry(.5, 8, 8),
       new THREE.MeshBasicMaterial({ color:0xffd0d8, transparent:true, opacity:.9 }));
@@ -3218,7 +3361,7 @@ function explode(pos) {
     if (e.dying > 0) continue;
     const to = e.mesh.position.clone().sub(pos); to.y = 0;
     if (to.length() > 4.2) continue;
-    hurtEnemy(e, 4, to.normalize(), 2.5);
+    hurtEnemy(e, 4 + (state.buffCoca > 0 ? 1 : 0), to.normalize(), 2.5);
   }
   // explosão atinge o boss reverso
   if (reverso.ativo && reverso.mesh) {
@@ -3234,6 +3377,11 @@ function explode(pos) {
 
 function damagePlayer(amount) {
   if (state.invuln > 0 || state.gameOver || state.deus > 0) return;
+  if (state.shield) {
+    // Escudo: invencibilidade total enquanto durar (até o timer zerar)
+    sfx('hit');
+    return;
+  }
   state.hp = Math.max(0, state.hp - amount);
   state.invuln = 2.0;
   updateHearts();
@@ -3610,13 +3758,15 @@ async function loadHomeRank() {
   const el = document.getElementById('homeRank');
   el.innerHTML = '<div class="rk-loading">Carregando ranking...</div>';
   try {
-    const r = await fetch(SB_URL + '/rest/v1/ranking?select=nick,score,wave&order=score.desc&limit=5',
+    const r = await fetch(SB_URL + '/rest/v1/ranking?select=nick,score,wave&order=score.desc&limit=10',
       { headers: SB_HEADERS });
     const top = await r.json();
     if (!top.length) { el.innerHTML = ''; return; }
-    let html = '<div class="rk-title">🏆 TOP 5 MUNDIAL</div>';
+    let html = '<div class="rk-title">🏆 TOP 10 MUNDIAL</div>';
+    const medalhas = ['🥇','🥈','🥉'];
     top.forEach((r2, i) => {
-      html += '<div class="rk-row"><span>' + ['🥇','🥈','🥉','4.','5.'][i] + ' ' +
+      const label = medalhas[i] || (i+1) + '.';
+      html += '<div class="rk-row"><span>' + label + ' ' +
         escapeHtml(r2.nick) + '</span><span>' + r2.score + ' pts</span></div>';
     });
     el.innerHTML = html;
@@ -3854,6 +4004,8 @@ function startGame() {
 
   enemies.forEach(e => scene.remove(e.mesh)); enemies = [];
   acais.forEach(a => scene.remove(a)); acais = [];
+  latas.forEach(l => scene.remove(l)); latas = [];
+  document.getElementById('buffsHud').innerHTML = '';
   heartDrops.forEach(h => scene.remove(h)); heartDrops = [];
   beams.forEach(b => scene.remove(b)); beams = [];
   auras.forEach(a => scene.remove(a)); auras = [];
@@ -3880,17 +4032,16 @@ function startGame() {
   auraMilestone = 10;
   minigunCd = 0; deusTick = .5;
   acaiTimer = 5;
+  lataTimer = 14;
   auraTimer = 4;
   supremoAtivo = false;
-  guabuadaAtiva = false;
   _deathCardRankPos = '?';
-  document.getElementById('guabuada').style.opacity = '0';
-  document.getElementById('guabuadaMsg').style.opacity = '0';
-  renderer.domElement.style.filter = 'none';
   document.getElementById('bigMsg').style.opacity = 0;
   vy = 0; grounded = true;
   Object.assign(state, { playing:true, gameOver:false, hp:MAX_HP, kills:0, wave:0,
-    invuln:0, attackT:0, attackCd:0, power:0, powerType:null, aura:0, deus:0 });
+    invuln:0, attackT:0, attackCd:0, power:0, powerType:null, aura:0, deus:0,
+    buffCoca:0, buffEnerg:0, shield:false, shieldTimer:0 });
+  if (shieldMesh) shieldMesh.visible = false;
   clearPower();
   player.position.set(0, 0, 10);
   player.visible = true;
@@ -3913,10 +4064,17 @@ document.getElementById('bdayBtn').addEventListener('click', startBirthday);
 document.addEventListener('click', () => { if (birthdayMode && bdayReady) exitBirthday(); });
 document.addEventListener('touchstart', () => { if (birthdayMode && bdayReady) exitBirthday(); });
 document.getElementById('restartBtn').addEventListener('click', () => { loadHomeRank(); startGame(); });
-if (isTouch) {
-  document.getElementById('hintDesktop').style.display = 'none';
-  document.getElementById('hintTouch').style.display = 'block';
-}
+
+// ---------- Sistema de abas da tela inicial ----------
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelector(`.tab-panel[data-panel="${btn.dataset.tab}"]`).classList.add('active');
+    if (btn.dataset.tab === 'rank') loadHomeRank();
+  });
+});
 
 // ---------- Loop ----------
 const clock = new THREE.Clock();
@@ -4030,7 +4188,8 @@ function animate() {
     if (moving) {
       mx /= Math.max(mlen, 1); mz /= Math.max(mlen, 1);
       const spd = PLAYER_SPEED * (1 + upgrades.vel)
-        * (state.power > 0 && state.powerType === 'corte' ? 1.35 : 1);
+        * (state.power > 0 && state.powerType === 'corte' ? 1.35 : 1)
+        * (state.buffEnerg > 0 ? 1.4 : 1);
       player.position.x += mx * spd * dt;
       player.position.z += mz * spd * dt;
       clampToArena(player.position);
@@ -4140,7 +4299,7 @@ function animate() {
         continue;
       }
       alive++;
-      if (e.frozen) continue;  // Guabuada: congelado, não move nem ataca
+      if (e.frozen) continue;
       // FESTIVAL: monstros vão para a frente do palco e dançam em fila
       if (festaRolando) {
         // posição de dança em frente ao palco (em grade), atribuída uma vez
@@ -4256,6 +4415,37 @@ function animate() {
         setPower(type);
       }
     }
+
+    // --- Latas (Coca-Cola / Energético / Escudo) — buffs raros que coexistem com açaí ---
+    lataTimer -= dt;
+    if (lataTimer <= 0 && latas.length < 2) {
+      spawnLata();
+      lataTimer = 9;
+    }
+    for (let i = latas.length - 1; i >= 0; i--) {
+      const lt = latas[i];
+      lt.rotation.y += dt * 3;
+      lt.position.y = .05 + Math.sin(t*4 + i) * .05;
+      if (lt.userData.sprite) lt.userData.sprite.position.y = 1.35 + Math.sin(t*3) * .08;
+      if (lt.position.distanceTo(player.position) < 1.3) {
+        const tipo = lt.userData.tipo;
+        scene.remove(lt); latas.splice(i, 1);
+        if (tipo === 'coca')   { state.buffCoca = BUFF_DURATION; }
+        if (tipo === 'energ')  { state.buffEnerg = BUFF_DURATION; }
+        if (tipo === 'escudo') { state.shield = true; state.shieldTimer = 15; updateShieldVisual(); }
+        showMsg(LATAS_INFO[tipo].emoji);
+        sfx('acai');
+        updateBuffsHud();
+      }
+    }
+    if (state.buffCoca > 0)  { state.buffCoca  -= dt; if (state.buffCoca  <= 0) { state.buffCoca = 0;  updateBuffsHud(); } }
+    if (state.buffEnerg > 0) { state.buffEnerg -= dt; if (state.buffEnerg <= 0) { state.buffEnerg = 0; updateBuffsHud(); } }
+    if (state.shield) {
+      state.shieldTimer -= dt;
+      if (state.shieldTimer <= 0) { state.shield = false; updateShieldVisual(); updateBuffsHud(); }
+    }
+    if (state.buffCoca > 0 || state.buffEnerg > 0 || state.shield) updateBuffsHud();
+
     if (state.power > 0) {
       state.power -= dt;
       aura.rotation.y += dt * 2.5;
@@ -4617,7 +4807,7 @@ function animate() {
           ufo._dmgAcc = (ufo._dmgAcc || 0) + dt;
           if (ufo._dmgAcc >= 1) {
             ufo._dmgAcc -= 1;
-            if (state.deus <= 0) { state.hp = Math.max(0, state.hp - 1); updateHearts(); sfx('hurt'); if (state.hp <= 0) endGame(); }
+            if (state.deus <= 0) damagePlayer(1);
           }
         }
       } else {
