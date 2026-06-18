@@ -201,7 +201,11 @@
   .skins-label { margin-top:20px; font-size:12px; font-weight:800; letter-spacing:3px; color:rgba(255,255,255,.55); }
   .event-card { margin-top:14px; padding:24px 22px; border-radius:20px; width:min(320px, 86vw);
     background:linear-gradient(160deg, rgba(255,79,195,.1), rgba(167,139,250,.08));
-    border:1px solid rgba(255,79,195,.25); }
+    border:1px solid rgba(255,79,195,.25); position:relative; }
+  .event-badge-new { position:absolute; top:-10px; right:16px; background:linear-gradient(95deg,#ff3b5c,#ff8a00);
+    color:#fff; font-size:10px; font-weight:900; letter-spacing:1px; padding:4px 10px; border-radius:20px;
+    box-shadow:0 0 12px rgba(255,59,92,.5); animation: novoPulse 1.6s ease-in-out infinite; }
+  @keyframes novoPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.08); } }
   .event-emoji { font-size:40px; }
   .event-title { margin-top:8px; font-size:17px; font-weight:900; letter-spacing:.5px;
     background:linear-gradient(95deg,#ff4fc3,#ffd166); -webkit-background-clip:text;
@@ -241,6 +245,38 @@
   }
   .btn:active { transform:scale(.96); }
   #gameover { display:none; }
+
+  /* ---------- Mini-jogo: Copa do Mundo / Pênaltis ---------- */
+  #penaltiHud { position:fixed; inset:0; z-index:18; display:none; pointer-events:none; }
+  #penaltiHud.show { display:block; }
+  #penaltiInfo { position:fixed; top:max(18px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+    background:rgba(8,12,24,.65); backdrop-filter:blur(6px); padding:8px 22px; border-radius:14px;
+    font-size:14px; font-weight:800; letter-spacing:1px; color:#ffd166; border:1px solid rgba(255,209,102,.3); }
+  #penaltiScore { position:fixed; top:calc(max(18px, env(safe-area-inset-top)) + 56px); left:16px;
+    background:rgba(8,12,24,.65); backdrop-filter:blur(6px); padding:8px 16px; border-radius:14px;
+    font-size:14px; font-weight:800; letter-spacing:.5px; color:#a3ffb0; border:1px solid rgba(163,255,176,.3); }
+  #penaltiAim { position:fixed; bottom:max(36px, env(safe-area-inset-bottom)); right:24px;
+    display:flex; flex-direction:column; align-items:center; gap:10px; pointer-events:auto; touch-action:none; }
+  #penaltiAimBase { width:130px; height:130px; border-radius:50%; background:rgba(255,255,255,.08);
+    border:2px solid rgba(255,255,255,.3); position:relative; backdrop-filter:blur(4px); }
+  #penaltiAimStick { width:54px; height:54px; border-radius:50%; background:rgba(178,107,255,.5);
+    border:2px solid rgba(255,255,255,.6); position:absolute; left:50%; top:50%;
+    transform:translate(-50%,-50%); transition:background .15s; z-index:2; }
+  #penaltiAimStick.charging { background:rgba(255,209,102,.65); }
+  #penaltiAimArrow { position:absolute; left:50%; top:50%; width:6px; height:0;
+    background:linear-gradient(180deg, #ffd166, rgba(255,209,102,0)); border-radius:4px;
+    transform-origin:top center; transform:translate(-50%,0) rotate(0deg); opacity:0; z-index:1; }
+  #penaltiAimHint { font-size:11px; font-weight:700; letter-spacing:.5px; color:rgba(255,255,255,.6);
+    text-shadow:0 1px 4px rgba(0,0,0,.6); text-align:center; max-width:140px; }
+  #penaltiExit { position:fixed; top:max(18px, env(safe-area-inset-top)); right:16px;
+    pointer-events:auto; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2);
+    color:#fff; font-size:12px; font-weight:700; padding:8px 14px; border-radius:12px; cursor:pointer; }
+  #penaltiMsg { position:fixed; top:30%; left:50%; transform:translate(-50%,-50%); z-index:19;
+    font-size:clamp(32px, 9vw, 64px); font-weight:900; letter-spacing:3px; opacity:0;
+    transition:opacity .25s, transform .25s; pointer-events:none; text-align:center;
+    text-shadow:0 4px 18px rgba(0,0,0,.6); }
+  #penaltiMsg.gol { color:#ffd166; }
+  #penaltiMsg.defesa { color:#ff5c5c; }
   #gameover .title { background:linear-gradient(95deg, #ff3b5c, #ff8c42);
     -webkit-background-clip:text; background-clip:text; }
   #finalStats { margin-top:18px; color:#fff; font-size:17px; line-height:2; }
@@ -272,6 +308,19 @@
 <div id="combo"></div>
 <div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 200px); right:16px; z-index:11; display:none; padding:4px 9px; border-radius:14px; background:rgba(8,12,24,.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); white-space:nowrap; pointer-events:none; font-size:11px; font-weight:700; color:#ffd166; letter-spacing:.2px;"></div>
 <div id="dmg"></div>
+<div id="penaltiHud">
+  <div id="penaltiInfo">PÊNALTI <span id="penaltiNum">1</span>/5</div>
+  <div id="penaltiScore">⚽ GOLS: <span id="penaltiGolsNum">0</span></div>
+  <div id="penaltiAim">
+    <div id="penaltiAimBase">
+      <div id="penaltiAimArrow"></div>
+      <div id="penaltiAimStick"></div>
+    </div>
+    <div id="penaltiAimHint">arraste para os lados e pra baixo (força), solte para chutar</div>
+  </div>
+  <button id="penaltiExit">✕ SAIR</button>
+</div>
+<div id="penaltiMsg"></div>
 <canvas id="minimap" width="220" height="220"></canvas>
 
 <div id="joyBase"><div id="joyStick"></div></div>
@@ -281,6 +330,7 @@
 <audio id="bandMusic" src="infinity.mp3" preload="auto"></audio>
 <audio id="alienMusic" src="alien_theme.mp3" loop preload="auto"></audio>
 <audio id="bdayMusic" src="parabens.mp3" preload="auto"></audio>
+<audio id="penaltiMusic" src="penaltis.mp3" preload="auto"></audio>
 
 <div class="screen" id="startScreen">
   <div class="home-logo"><span class="sword-emoji">⚔️</span></div>
@@ -302,8 +352,15 @@
   </div>
 
   <div class="tab-panel" data-panel="eventos">
-    <div class="skins-label">EVENTO ESPECIAL</div>
+    <div class="skins-label">EVENTOS ESPECIAIS</div>
     <div class="event-card">
+      <div class="event-badge-new">NOVO</div>
+      <div class="event-emoji">⚽</div>
+      <div class="event-title">Copa do Mundo Infinity</div>
+      <div class="event-desc">Vista a camisa do Brasil e cobre 5 pênaltis contra monstros goleiros!</div>
+      <button class="btn" id="copaBtn" style="margin-top:16px; background:linear-gradient(95deg,#009c3b,#ffdf00,#009c3b); font-size:15px; box-shadow:0 0 18px rgba(0,156,59,.35); color:#0a2e16;">⚽ COBRAR PÊNALTIS</button>
+    </div>
+    <div class="event-card" style="margin-top:14px;">
       <div class="event-emoji">🎂</div>
       <div class="event-title">Aniversário Infinity</div>
       <div class="event-desc">Modo comemorativo sem combate — só celebração visual com música.</div>
@@ -1878,16 +1935,27 @@ function initSkinPreview() {
 
     previewGroup.userData = { pArmor, pArmorLight, pBoot, pGlow, pHood, pCape };
     previewScene.add(previewGroup);
-    animatePreview();
+    previewRenderer.render(previewScene, previewCamera);  // frame estático inicial
+    // loop só inicia quando a aba Skins estiver visível (ver resumePreview)
   } catch (err) {
     console.warn('Preview de skin indisponível:', err);
   }
 }
+let previewActive = false;
 function animatePreview() {
-  if (!previewGroup) return;
+  if (!previewGroup || !previewActive) { previewRAF = null; return; }
   previewGroup.rotation.y += .012;
   previewRenderer.render(previewScene, previewCamera);
   previewRAF = requestAnimationFrame(animatePreview);
+}
+function pausePreview() {
+  previewActive = false;
+  if (previewRAF) { cancelAnimationFrame(previewRAF); previewRAF = null; }
+}
+function resumePreview() {
+  if (!previewGroup || previewActive) return;
+  previewActive = true;
+  animatePreview();
 }
 function updateSkinPreview(id) {
   if (!previewGroup) return;
@@ -3495,8 +3563,13 @@ function endGame() {
   stopFestivalMusic();
   stopAlienMusic();
   const score = state.kills * 10 + state.wave * 100;
-  document.getElementById('finalStats').innerHTML =
-    `Monstros derrotados: <b>${state.kills}</b> &nbsp;·&nbsp; Onda: <b>${state.wave}</b><br>Pontuação: <b>${score}</b>`;
+  if (window._mortoNoPenalti) {
+    document.getElementById('finalStats').innerHTML =
+      `A torcida se revoltou e te derrubou! 😵<br>Você fez <b>${penaltiState.gols}/5</b> pênaltis.`;
+  } else {
+    document.getElementById('finalStats').innerHTML =
+      `Monstros derrotados: <b>${state.kills}</b> &nbsp;·&nbsp; Onda: <b>${state.wave}</b><br>Pontuação: <b>${score}</b>`;
+  }
   submitScore();
   document.getElementById('gameover').style.display = 'flex';
   document.getElementById('hud').style.display = 'none';
@@ -3991,6 +4064,7 @@ function makeChapeu() {
 }
 
 function startBirthday() {
+  try { pausePreview(); } catch(e){}
   // esconde telas e HUD
   document.getElementById('startScreen').style.display = 'none';
   document.getElementById('hud').style.display = 'none';
@@ -4080,7 +4154,387 @@ function exitBirthday() {
   player.visible = true;
 }
 
+// =========================================================
+// Mini-jogo: Copa do Mundo Infinity — Pênaltis
+// =========================================================
+let penaltiMode = false, penaltiReady = false;
+let penaltiState = { num:0, total:5, gols:0, goleiro:null, chutando:false };
+const PENALTI_SPOT = { x:17, z:-10 };   // marca da cobrança (dentro da quadra real: x 11.5–22.5, z -25.25–-8.75)
+const PENALTI_GOAL  = { x:17, z:-24 };  // gol encostado no fundo da quadra
+const penaltiMusic = document.getElementById('penaltiMusic');
+const GOLEIRO_TIPOS = ['esqueleto', 'zumbi', 'mumia', 'fantasma', 'gigante'];
+
+function buildLiderTorcida(kind) {
+  let built;
+  if (kind === 'mumia') built = buildMumia();
+  else if (kind === 'fantasma') built = buildFantasma();
+  else if (kind === 'zumbi') built = buildZumbi();
+  else built = buildEsqueleto(false);
+  const g = built.g;
+  // bandeirola na mão
+  const bandeira = new THREE.Group();
+  const cabo = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .9, 6),
+    new THREE.MeshStandardMaterial({ color:0x5a4530 }));
+  cabo.position.y = .45; bandeira.add(cabo);
+  const pano = new THREE.Mesh(new THREE.PlaneGeometry(.5, .35),
+    new THREE.MeshStandardMaterial({ color:0x009c3b, side:THREE.DoubleSide }));
+  pano.position.set(.27, .82, 0); bandeira.add(pano);
+  bandeira.position.set(.4, .9, .15);
+  bandeira.rotation.z = -.3;
+  g.add(bandeira);
+  g.userData.bandeira = bandeira;
+  return g;
+}
+
+function buildArquibancada(side) {
+  // side = -1 (esquerda) ou 1 (direita), relativo ao eixo X em torno do gol
+  const grupo = new THREE.Group();
+  const tipos = ['esqueleto', 'zumbi', 'mumia', 'fantasma'];
+  const torcedores = [];
+  // fileiras de torcedores comuns
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 5; col++) {
+      const kind = tipos[(row + col) % tipos.length];
+      let built;
+      if (kind === 'mumia') built = buildMumia();
+      else if (kind === 'fantasma') built = buildFantasma();
+      else if (kind === 'zumbi') built = buildZumbi();
+      else built = buildEsqueleto(false);
+      const g = built.g;
+      g.scale.setScalar(.8);
+      const baseY = row * .5;
+      g.position.set(side * (3.5 + row * 1.3), baseY, -2 + col * 1.1);
+      g.rotation.y = side > 0 ? -Math.PI/2 : Math.PI/2;
+      g.userData.baseY = baseY;
+      grupo.add(g);
+      torcedores.push({ mesh:g, bob:Math.random()*10 });
+    }
+  }
+  // líder de torcida na frente, com bandeira, mais animado
+  const lider = buildLiderTorcida('esqueleto');
+  lider.scale.setScalar(1.05);
+  lider.position.set(side * 2.7, 0, 1.5);
+  lider.rotation.y = side > 0 ? -Math.PI/2 : Math.PI/2;
+  grupo.add(lider);
+  torcedores.push({ mesh:lider, bob:0, lider:true });
+  return { grupo, torcedores };
+}
+
+function buildGol() {
+  const g = new THREE.Group();
+  const postMat = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:.4, metalness:.2 });
+  const travLeft  = new THREE.Mesh(new THREE.CylinderGeometry(.12, .12, 2.6, 10), postMat);
+  travLeft.position.set(-3, 1.3, 0);
+  const travRight = travLeft.clone(); travRight.position.x = 3;
+  const travTop = new THREE.Mesh(new THREE.CylinderGeometry(.12, .12, 6, 10), postMat);
+  travTop.rotation.z = Math.PI/2; travTop.position.set(0, 2.6, 0);
+  g.add(travLeft, travRight, travTop);
+  // rede simples (linhas)
+  const netMat = new THREE.LineBasicMaterial({ color:0xffffff, transparent:true, opacity:.35 });
+  for (let i = -3; i <= 3; i += .6) {
+    const pts = [new THREE.Vector3(i, 0, -.3), new THREE.Vector3(i, 2.6, -.3)];
+    const geoL = new THREE.BufferGeometry().setFromPoints(pts);
+    g.add(new THREE.Line(geoL, netMat));
+  }
+  for (let j = 0; j <= 2.6; j += .5) {
+    const pts = [new THREE.Vector3(-3, j, -.3), new THREE.Vector3(3, j, -.3)];
+    const geoL = new THREE.BufferGeometry().setFromPoints(pts);
+    g.add(new THREE.Line(geoL, netMat));
+  }
+  return g;
+}
+
+function buildBola() {
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(.28, 16, 16),
+    new THREE.MeshStandardMaterial({ color:0xffffff, roughness:.5 }));
+  // manchas pretas simples (hexágonos simulados com pequenos discos)
+  const spotMat = new THREE.MeshBasicMaterial({ color:0x111111 });
+  [[0,.28,0],[ .2,.18,.2],[-.2,.18,.2],[ .2,.18,-.2],[-.2,.18,-.2]].forEach(([x,y,z]) => {
+    const s = new THREE.Mesh(new THREE.CircleGeometry(.08, 8), spotMat);
+    s.position.set(x,y,z); s.lookAt(x*2,y*2,z*2); ball.add(s);
+  });
+  return ball;
+}
+
+function startCopaDoMundo() {
+  try { pausePreview(); } catch(e){}
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('hud').style.display = 'none';
+  initAudio();
+  stopMusic();
+
+  penaltiMode = true;
+  penaltiReady = false;
+  state.playing = false;
+  penaltiState && (penaltiState._sendoEspancado = false);
+  state.gameOver = false;
+  state.hp = MAX_HP;
+  updateHearts();
+  penaltiState = { num:0, total:5, gols:0, goleiro:null, chutando:false };
+
+  enemies.forEach(e => scene.remove(e.mesh)); enemies = [];
+
+  // veste a skin Brasil pro evento
+  setSkin('brasil');
+
+  // monta o gol
+  if (penaltiState._gol) scene.remove(penaltiState._gol);
+  const gol = buildGol();
+  gol.position.set(PENALTI_GOAL.x, 0, PENALTI_GOAL.z);
+  scene.add(gol);
+  penaltiState._gol = gol;
+
+  // arquibancadas com torcida nas laterais (ao redor do meio do campo, entre marca e gol)
+  if (penaltiState._torcidaE) scene.remove(penaltiState._torcidaE.grupo);
+  if (penaltiState._torcidaD) scene.remove(penaltiState._torcidaD.grupo);
+  const midZ = (PENALTI_SPOT.z + PENALTI_GOAL.z) / 2;
+  const torcidaE = buildArquibancada(-1);
+  torcidaE.grupo.position.set(PENALTI_GOAL.x, 0, midZ);
+  scene.add(torcidaE.grupo);
+  penaltiState._torcidaE = torcidaE;
+  const torcidaD = buildArquibancada(1);
+  torcidaD.grupo.position.set(PENALTI_GOAL.x, 0, midZ);
+  scene.add(torcidaD.grupo);
+  penaltiState._torcidaD = torcidaD;
+
+  // jogador na marca do pênalti, de frente pro gol
+  player.visible = true;
+  player.position.set(PENALTI_SPOT.x, .8, PENALTI_SPOT.z);
+  player.rotation.y = Math.atan2(PENALTI_GOAL.x - PENALTI_SPOT.x, PENALTI_GOAL.z - PENALTI_SPOT.z);
+
+  camZoom = 1.3;
+  document.getElementById('penaltiHud').classList.add('show');
+  document.getElementById('penaltiNum').textContent = '1';
+  document.getElementById('penaltiGolsNum').textContent = '0';
+  showMsg('⚽ COPA DO MUNDO INFINITY!');
+
+  try {
+    penaltiMusic.muted = false;
+    penaltiMusic.volume = muted ? 0 : .6;
+    penaltiMusic.currentTime = 0;
+    const p = penaltiMusic.play();
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+
+  setTimeout(() => { penaltiReady = true; nextPenalti(); }, 900);
+}
+
+function nextPenalti() {
+  penaltiState.num++;
+  document.getElementById('penaltiNum').textContent = Math.min(penaltiState.num, penaltiState.total);
+  penaltiState.chutando = false;
+
+  // remove goleiro anterior
+  if (penaltiState.goleiro) scene.remove(penaltiState.goleiro.mesh);
+
+  // sorteia um monstro novo pra ser o goleiro
+  const kind = GOLEIRO_TIPOS[Math.floor(Math.random() * GOLEIRO_TIPOS.length)];
+  let built;
+  if (kind === 'mumia') built = buildMumia();
+  else if (kind === 'fantasma') built = buildFantasma();
+  else if (kind === 'zumbi') built = buildZumbi();
+  else built = buildEsqueleto(kind === 'gigante');
+  const g = built.g;
+  if (kind === 'gigante') g.scale.setScalar(1.4);
+  g.position.set(PENALTI_GOAL.x, 0, PENALTI_GOAL.z + 1.2);
+  g.rotation.y = Math.atan2(PENALTI_SPOT.x - PENALTI_GOAL.x, PENALTI_SPOT.z - PENALTI_GOAL.z);
+  scene.add(g);
+  penaltiState.goleiro = { mesh:g, kind, defendeZona:['esquerda','centro','direita'][Math.floor(Math.random()*3)] };
+
+  // reseta a bola na marca
+  if (penaltiState._bola) scene.remove(penaltiState._bola);
+  const bola = buildBola();
+  bola.position.set(PENALTI_SPOT.x, .28, PENALTI_SPOT.z);
+  scene.add(bola);
+  penaltiState._bola = bola;
+}
+
+function chutarPenalti(dx, dy) {
+  if (!penaltiReady || penaltiState.chutando || !penaltiState.goleiro) return;
+  penaltiState.chutando = true;
+
+  const bola = penaltiState._bola;
+  // dx: -1 (esquerda) a 1 (direita) — faixa maior que a trave (3) permite mandar pra fora
+  const golX = PENALTI_GOAL.x + dx * 4.2;
+  // dy: 0 (rasteiro) a 1 (força total) — quanto mais forte, mais alto/pode subir o gol
+  const altura = .5 + dy * 2.3;
+  const golForaTrave = Math.abs(dx * 4.2) > 2.7 || dy > .92;
+  const startPos = bola.position.clone();
+  const t0 = performance.now();
+  const dur = 650;
+
+  function animaChute() {
+    const p = Math.min(1, (performance.now() - t0) / dur);
+    bola.position.x = startPos.x + (golX - startPos.x) * p;
+    bola.position.z = startPos.z + (PENALTI_GOAL.z - startPos.z) * p;
+    bola.position.y = .28 + Math.sin(p * Math.PI) * altura;
+    bola.rotation.x += .4;
+    if (p < 1) requestAnimationFrame(animaChute);
+    else resolverChute(dx, golForaTrave);
+  }
+  animaChute();
+}
+
+function resolverChute(dx, golForaTrave) {
+  const zonaChute = dx < -.3 ? 'esquerda' : dx > .3 ? 'direita' : 'centro';
+  const defendeu = !golForaTrave && penaltiState.goleiro.defendeZona === zonaChute;
+  const msgEl = document.getElementById('penaltiMsg');
+  if (golForaTrave) {
+    msgEl.textContent = '😬 PRA FORA!';
+    msgEl.className = 'defesa';
+    sfx('hit');
+  } else if (defendeu) {
+    msgEl.textContent = '🧤 DEFENDEU!';
+    msgEl.className = 'defesa';
+    sfx('hit');
+  } else {
+    msgEl.textContent = '⚽ GOOOOL!';
+    msgEl.className = 'gol';
+    sfx('death');
+    addShake(.4);
+    penaltiState.gols++;
+    document.getElementById('penaltiGolsNum').textContent = penaltiState.gols;
+  }
+  msgEl.style.opacity = '1';
+  msgEl.style.transform = 'translate(-50%,-50%) scale(1.15)';
+  setTimeout(() => { msgEl.style.transform = 'translate(-50%,-50%) scale(1)'; }, 150);
+
+  setTimeout(() => {
+    msgEl.style.opacity = '0';
+    if (penaltiState.num >= penaltiState.total) {
+      document.getElementById('penaltiHud').classList.remove('show');
+      if (penaltiState.gols >= 4) finalVitoria();
+      else finalDerrota();
+    } else {
+      nextPenalti();
+    }
+  }, 1400);
+}
+
+function finalVitoria() {
+  showMsg('🏆 VOCÊ VENCEU A COPA! ' + penaltiState.gols + '/5 GOLS!');
+  penaltiState._comemorando = true;
+  invadirCampoComemorando(true);
+  setTimeout(exitCopaDoMundo, 5000);
+}
+
+function finalDerrota() {
+  showMsg('💀 ' + penaltiState.gols + '/5 GOLS... A TORCIDA SE REVOLTOU!');
+  invadirCampoComemorando(false);
+  penaltiState._sendoEspancado = true;
+  // dano real, leva ao game over de verdade do jogo principal
+  setTimeout(() => {
+    penaltiMode = false;          // sai do modo especial para o loop normal processar o dano/game over
+    state.playing = true;
+    state.invuln = 0;
+    state.shield = false;
+    window._mortoNoPenalti = true;
+    damagePlayer(MAX_HP);          // tira toda a vida de uma vez, aciona endGame()
+  }, 2600);
+}
+
+function invadirCampoComemorando(vitoria) {
+  const todos = [];
+  if (penaltiState._torcidaE) todos.push(...penaltiState._torcidaE.torcedores);
+  if (penaltiState._torcidaD) todos.push(...penaltiState._torcidaD.torcedores);
+  // vitória: comemoram no meio do campo. derrota: cercam o jogador onde ele está (na marca do pênalti)
+  const midX = vitoria ? 17 : player.position.x;
+  const midZ = vitoria ? -17 : player.position.z;
+  todos.forEach((td, i) => {
+    const ang = (i / todos.length) * Math.PI * 2;
+    const raio = vitoria ? rand(1.2, 2.8) : rand(1.0, 1.6);
+    td.invadindo = true;
+    td.alvoX = midX + Math.cos(ang) * raio;
+    td.alvoZ = midZ + Math.sin(ang) * raio * (vitoria ? 1.3 : 1);
+    td.espancando = !vitoria;
+  });
+}
+
+function exitCopaDoMundo() {
+  penaltiMode = false;
+  penaltiReady = false;
+  try { penaltiMusic.pause(); } catch (e) {}
+  if (penaltiState._gol) scene.remove(penaltiState._gol);
+  if (penaltiState._bola) scene.remove(penaltiState._bola);
+  if (penaltiState.goleiro) scene.remove(penaltiState.goleiro.mesh);
+  if (penaltiState._torcidaE) scene.remove(penaltiState._torcidaE.grupo);
+  if (penaltiState._torcidaD) scene.remove(penaltiState._torcidaD.grupo);
+  document.getElementById('penaltiHud').classList.remove('show');
+  document.getElementById('startScreen').style.display = 'flex';
+  player.visible = true;
+}
+
+document.getElementById('copaBtn').addEventListener('click', startCopaDoMundo);
+document.getElementById('penaltiExit').addEventListener('click', exitCopaDoMundo);
+
+// ---------- Analógico de mira do chute (Copa do Mundo) ----------
+(function () {
+  const base = document.getElementById('penaltiAimBase');
+  const stick = document.getElementById('penaltiAimStick');
+  const arrow = document.getElementById('penaltiAimArrow');
+  const RAIO_MAX = 50; // metade da base (130px) menos margem
+  let dragging = false, dragId = null, dx = 0, dy = 0;
+
+  function setStick(px, py) {
+    stick.style.left = (50 + px) + '%';
+    stick.style.top  = (50 + py) + '%';
+  }
+  function resetStick() {
+    stick.style.left = '50%'; stick.style.top = '50%';
+    stick.classList.remove('charging');
+    arrow.style.opacity = '0';
+  }
+  function updateFromClient(clientX, clientY) {
+    const rect = base.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    let ox = clientX - cx, oy = clientY - cy;
+    const dist = Math.hypot(ox, oy);
+    if (dist > RAIO_MAX) { ox = ox / dist * RAIO_MAX; oy = oy / dist * RAIO_MAX; }
+    setStick((ox / RAIO_MAX) * 38, (oy / RAIO_MAX) * 38);
+    stick.classList.add('charging');
+    // dx: -1 a 1 (horizontal) | dy: 0 (centro) a 1 (puxado pra baixo = mais força/altura)
+    dx = ox / RAIO_MAX;
+    dy = Math.max(0, oy / RAIO_MAX);  // só conta força quando arrasta pra baixo (puxar pra trás antes de chutar)
+    // seta de mira: aponta na direção OPOSTA ao arrasto (estilingue) — mostra pra onde a bola vai
+    const tamanho = Math.min(48, Math.max(14, dist * .9));
+    const angDeg = Math.atan2(-ox, oy) * (180 / Math.PI);  // direção oposta, em graus
+    arrow.style.height = tamanho + 'px';
+    arrow.style.transform = `translate(-50%,0) rotate(${angDeg}deg)`;
+    arrow.style.opacity = dist > 6 ? '1' : '0';
+  }
+  function start(e) {
+    if (!penaltiReady || penaltiState.chutando) return;
+    dragging = true;
+    const t = e.touches ? e.touches[0] : e;
+    dragId = e.touches ? e.touches[0].identifier : 'mouse';
+    updateFromClient(t.clientX, t.clientY);
+  }
+  function move(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    let t;
+    if (e.touches) { t = Array.from(e.touches).find(tt => tt.identifier === dragId); if (!t) return; }
+    else t = e;
+    updateFromClient(t.clientX, t.clientY);
+  }
+  function end() {
+    if (!dragging) return;
+    dragging = false;
+    const finalDx = dx, finalDy = Math.max(dy, .35); // força mínima pra sempre chegar no gol
+    resetStick();
+    chutarPenalti(finalDx, finalDy);
+  }
+  base.addEventListener('mousedown', start);
+  addEventListener('mousemove', move);
+  addEventListener('mouseup', end);
+  base.addEventListener('touchstart', start, { passive:true });
+  addEventListener('touchmove', move, { passive:false });
+  addEventListener('touchend', end);
+})();
+
 function startGame() {
+  try { pausePreview(); } catch(e){}
+  window._mortoNoPenalti = false;
   initAudio();
   startMusic();
   // botão de som removido por enquanto
@@ -4088,7 +4542,7 @@ function startGame() {
   // desbloqueia os MP3 no celular: o navegador só libera áudio após um toque.
   // damos play e pausamos NA HORA (e de novo quando a Promise resolver) para
   // garantir que nenhuma música fique tocando ao iniciar o jogo.
-  [bandMusic, alienMusic, bdayMusic].forEach(a => {
+  [bandMusic, alienMusic, bdayMusic, penaltiMusic].forEach(a => {
     if (!a) return;
     try {
       a.muted = true;
@@ -4160,7 +4614,18 @@ document.getElementById('bdayBtn').addEventListener('click', startBirthday);
 // tocar na tela durante o aniversário volta ao menu (após pequeno delay)
 document.addEventListener('click', () => { if (birthdayMode && bdayReady) exitBirthday(); });
 document.addEventListener('touchstart', () => { if (birthdayMode && bdayReady) exitBirthday(); });
-document.getElementById('restartBtn').addEventListener('click', () => { loadHomeRank(); startGame(); });
+document.getElementById('restartBtn').addEventListener('click', () => {
+  if (window._mortoNoPenalti) {
+    window._mortoNoPenalti = false;
+    document.getElementById('gameover').style.display = 'none';
+    document.getElementById('startScreen').style.display = 'flex';
+    state.gameOver = false;
+    player.visible = true;
+    loadHomeRank();
+  } else {
+    loadHomeRank(); startGame();
+  }
+});
 
 // ---------- Sistema de abas da tela inicial ----------
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -4170,12 +4635,15 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     document.querySelector(`.tab-panel[data-panel="${btn.dataset.tab}"]`).classList.add('active');
     if (btn.dataset.tab === 'rank') loadHomeRank();
+    if (btn.dataset.tab === 'skins') { try { resumePreview(); } catch(e){} }
+    else { try { pausePreview(); } catch(e){} }
   });
 });
 
 // ---------- Loop ----------
 const clock = new THREE.Clock();
 let walkPhase = 0, lastStepBucket = 0;
+let frameParidade = 0;
 let vy = 0, grounded = true;
 
 function jump() {
@@ -4217,6 +4685,75 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), .05);
   const t = clock.elapsedTime;
+  frameParidade = 1 - frameParidade;
+
+  // ⚽ MODO COPA DO MUNDO: cena especial de pênaltis, não-jogável
+  if (penaltiMode) {
+    updateLuz(dt);
+    // goleiro se move levemente de um lado pro outro (suspense)
+    if (penaltiState.goleiro) {
+      const gm = penaltiState.goleiro.mesh;
+      gm.position.x = PENALTI_GOAL.x + Math.sin(t * 2.2) * .9;
+      gm.position.y = Math.abs(Math.sin(t * 6)) * .08;
+    }
+    // bola descansando gira suavemente quando não está sendo chutada
+    if (penaltiState._bola && !penaltiState.chutando) {
+      penaltiState._bola.rotation.y += dt * .6;
+    }
+    // torcida animada: pulando e balançando bandeiras (ou invadindo/espancando no final)
+    [penaltiState._torcidaE, penaltiState._torcidaD].forEach(torc => {
+      if (!torc) return;
+      torc.torcedores.forEach(td => {
+        if (td.invadindo) {
+          const dx = td.alvoX - td.mesh.position.x;
+          const dz = td.alvoZ - td.mesh.position.z;
+          const dist = Math.hypot(dx, dz);
+          const chegou = dist <= .15;
+          if (!chegou) {
+            td.mesh.position.x += (dx / dist) * dt * 5;
+            td.mesh.position.z += (dz / dist) * dt * 5;
+            td.mesh.rotation.y = Math.atan2(dx, dz);
+          }
+          if (td.espancando) {
+            if (chegou) {
+              // chegou perto do jogador: encara ele e golpeia repetidamente
+              const pdx = player.position.x - td.mesh.position.x;
+              const pdz = player.position.z - td.mesh.position.z;
+              td.mesh.rotation.y = Math.atan2(pdx, pdz);
+              td.mesh.position.y = Math.abs(Math.sin(t * 18 + td.bob)) * .3;
+              td.mesh.rotation.x = Math.sin(t * 18 + td.bob) * .35;  // golpeia pra frente
+              td.mesh.position.x += Math.sin(t * 18 + td.bob) * .04; // empurrões
+              td.mesh.position.z += Math.cos(t * 18 + td.bob) * .04;
+            } else {
+              td.mesh.position.y = Math.abs(Math.sin(t * 14 + td.bob)) * .25;
+              td.mesh.rotation.z = Math.sin(t * 16 + td.bob) * .3;
+            }
+          } else {
+            td.mesh.position.y = Math.abs(Math.sin(t * 6 + td.bob)) * .35;
+          }
+        } else {
+          const amp = td.lider ? .18 : .1;
+          td.mesh.position.y = Math.abs(Math.sin(t * 4 + td.bob)) * amp + (td.lider ? 0 : (td.mesh.userData.baseY || 0));
+          if (td.lider && td.mesh.userData.bandeira) {
+            td.mesh.userData.bandeira.rotation.z = -.3 + Math.sin(t * 5) * .5;
+          }
+        }
+      });
+    });
+    // jogador sendo espancado: tremor de câmera contínuo durante o cerco
+    if (penaltiState._sendoEspancado) addShake(.08);
+    // jogador também pula comemorando na vitória
+    if (penaltiState._comemorando) {
+      player.position.y = .8 + Math.abs(Math.sin(t * 6)) * .35;
+    }
+    // câmera aérea alta: vê o campo inteiro — jogador, bola, gol, goleiro e torcida nas duas laterais
+    const fieldCenterX = PENALTI_SPOT.x;
+    const fieldCenterZ = (PENALTI_SPOT.z + PENALTI_GOAL.z) / 2;
+    camera.position.set(fieldCenterX, 17, fieldCenterZ + 9);
+    camera.lookAt(fieldCenterX, 0, fieldCenterZ - 1);
+    renderer.render(scene, camera);
+    return;
+  }
 
   // 🎂 MODO ANIVERSÁRIO: cena especial, não-jogável
   if (birthdayMode) {
@@ -4451,7 +4988,10 @@ function animate() {
         e.mesh.position.z = np.z;
       }
       // --- Separação: empurra monstros que estejam se sobrepondo ---
-      const SEP_RADIUS = e.elite ? 2.0 : 1.1;
+      // otimização: alterna metade dos inimigos por frame (custo O(n²) pela metade, sem mudança visual perceptível)
+      if (enemies.length > 16 && ((e.bobSeed | 0) + frameParidade) % 2 === 0) {
+        // pula este inimigo neste frame específico
+      } else {
       const SEP_FORCE  = e.elite ? 1.8 : 2.2;
       let sx = 0, sz = 0;
       for (let j = 0; j < enemies.length; j++) {
@@ -4471,6 +5011,7 @@ function animate() {
         e.mesh.position.x += sx * SEP_FORCE * dt;
         e.mesh.position.z += sz * SEP_FORCE * dt;
         clampToArena(e.mesh.position);
+      }
       }
       e.mesh.lookAt(player.position.x, 0, player.position.z);
       e.mesh.position.y = e.ghost
