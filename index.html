@@ -246,6 +246,18 @@
   .btn:active { transform:scale(.96); }
   #gameover { display:none; }
 
+  /* ---------- Balão de fala da Julinha HP ---------- */
+  #julinhaFala { position:fixed; top:18%; left:50%; transform:translate(-50%,-10px) scale(.85);
+    z-index:15; pointer-events:none; opacity:0; transition:opacity .25s, transform .25s;
+    background:#fff; color:#1a0a2e; font-weight:900; font-size:15px; letter-spacing:.3px;
+    padding:10px 18px; border-radius:18px; border:3px solid #2b1055;
+    box-shadow:0 6px 18px rgba(0,0,0,.35); max-width:280px; text-align:center; }
+  #julinhaFala::after { content:''; position:absolute; bottom:-14px; left:50%; transform:translateX(-50%);
+    border-width:14px 10px 0 10px; border-style:solid; border-color:#2b1055 transparent transparent transparent; }
+  #julinhaFala::before { content:''; position:absolute; bottom:-9px; left:50%; transform:translateX(-50%);
+    border-width:10px 7px 0 7px; border-style:solid; border-color:#fff transparent transparent transparent; z-index:1; }
+  #julinhaFala.show { opacity:1; transform:translate(-50%,0) scale(1); }
+
   /* ---------- Mini-jogo: Copa do Mundo / Pênaltis ---------- */
   #penaltiHud { position:fixed; inset:0; z-index:18; display:none; pointer-events:none; }
   #penaltiHud.show { display:block; }
@@ -308,6 +320,7 @@
 <div id="combo"></div>
 <div id="questBanner" style="position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + 200px); right:16px; z-index:11; display:none; padding:4px 9px; border-radius:14px; background:rgba(8,12,24,.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); white-space:nowrap; pointer-events:none; font-size:11px; font-weight:700; color:#ffd166; letter-spacing:.2px;"></div>
 <div id="dmg"></div>
+<div id="julinhaFala"></div>
 <div id="penaltiHud">
   <div id="penaltiInfo">PÊNALTI <span id="penaltiNum">1</span>/5</div>
   <div id="penaltiScore">⚽ GOLS: <span id="penaltiGolsNum">0</span></div>
@@ -376,6 +389,7 @@
       <button class="skin-btn" data-skin="patriota"><span class="dot" style="background:linear-gradient(180deg,#b22234 33%,#fff 33%,#fff 66%,#3c3b6e 66%)"></span>PATRIOTA</button>
       <button class="skin-btn" data-skin="brasil"><span class="dot" style="background:linear-gradient(180deg,#009c3b 50%,#ffdf00 50%)"></span>BRASIL</button>
       <button class="skin-btn" data-skin="unicornio"><span class="dot" style="background:linear-gradient(90deg,#ff4fc3,#ffd166,#4ade80,#22d3ee,#a78bfa)"></span>🦄 UNICÓRNIO</button>
+      <button class="skin-btn" data-skin="feiticeira"><span class="dot" style="background:linear-gradient(160deg,#1c1c24,#9b1c2e)"></span>🪄 JULINHA HP</button>
     </div>
   </div>
 
@@ -385,6 +399,7 @@
       🍇 Açaís comuns: <b class="p1">CORTE</b> <b class="p2">MARTELO</b> <b class="p3">LASER</b><br>
       Açaís raros: <b style="color:#ffe14d">MINIGUN</b> <b style="color:#84cc16">BOMBAS</b><br>
       🥤⚡🛡️ Latas: dano, velocidade e escudo<br><br>
+      🦄 Unicórnio dispara arco-íris &nbsp;|&nbsp; 🪄 Feiticeira dispara raios<br><br>
       🎮 W A S D — mover &nbsp;|&nbsp; ESPAÇO — pular &nbsp;|&nbsp; CLIQUE/J — atacar<br>
       🕹️ Joystick — mover &nbsp;|&nbsp; ↑ — pular &nbsp;|&nbsp; ⚔️ — atacar
     </div>
@@ -440,7 +455,7 @@ const state = {
 const keys = {};
 const joy = { active:false, id:null, dx:0, dy:0, originX:0, originY:0 };
 const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-let enemies = [], acais = [], latas = [], heartDrops = [], beams = [], clouds = [], auras = [], novas = [], bombs = [], explosions = [], rainbowShots = [];
+let enemies = [], acais = [], latas = [], heartDrops = [], beams = [], clouds = [], auras = [], novas = [], bombs = [], explosions = [], rainbowShots = [], raiosFeiticeira = [];
 
 // ---------- Cena ----------
 const scene = new THREE.Scene();
@@ -1601,6 +1616,7 @@ const SKINS = {
   patriota: { nome:'PATRIOTA', armor:0x1a2440, armorLight:0x26365c, glow:0xffd166, glowE:0xe6a817, cape:{ flag:'usa' } },
   brasil:   { nome:'BRASIL',   armor:0x123524, armorLight:0x1c4d33, glow:0xffdf00, glowE:0xd4b800, cape:{ flag:'br' } },
   unicornio:{ nome:'UNICÓRNIO',armor:0xfbd5e8, armorLight:0xf2b8df, glow:0xff8ed6, glowE:0xff4fc3, cape:{ color:0xe5c4ff }, unicornio:true },
+  feiticeira:{ nome:'JULINHA HP', armor:0x1c1c24, armorLight:0x2b2b36, glow:0xd4af37, glowE:0xb8932e, cape:{ color:0x14141c }, feiticeira:true },
 };
 let currentSkin = SKINS.cacador;
 
@@ -1608,6 +1624,7 @@ let currentSkin = SKINS.cacador;
 const player = new THREE.Group();
 let rightArm, leftArm, rightLeg, leftLeg, sword, swordGlow, hammer, minigunMesh, bombHand, aura, playerGlow, shieldMesh;
 let matArmor, matArmorLight, matBoot, capeMesh, unicornParts, wand, playerLight;
+let feiticeiraParts, wandMagica, playerTorso, playerLegs;
 
 function buildPlayer() {
   matArmor = new THREE.MeshStandardMaterial({ color:0x14101f, roughness:.85 });
@@ -1622,10 +1639,12 @@ function buildPlayer() {
   const shoeL = mk(.3, .18, .45, matBoot); shoeL.position.set(0, -.85, .07); leftLeg.add(shoeL);
   const shoeR = mk(.3, .18, .45, matBoot); shoeR.position.set(0, -.85, .07); rightLeg.add(shoeR);
   player.add(leftLeg, rightLeg);
+  playerLegs = [leftLeg, rightLeg];
 
   // Torso blindado + marca X
   const torso = mk(.85, .95, .45, matArmorLight);
   torso.position.y = 1.55;
+  playerTorso = torso;
   const xBar1 = new THREE.Mesh(new THREE.BoxGeometry(.55, .09, .02), playerGlow);
   xBar1.rotation.z = Math.PI/4; xBar1.position.set(0, .08, .235); torso.add(xBar1);
   const xBar2 = xBar1.clone(); xBar2.rotation.z = -Math.PI/4; torso.add(xBar2);
@@ -1657,6 +1676,75 @@ function buildPlayer() {
   const mouth = new THREE.Mesh(new THREE.BoxGeometry(.14, .03, .02), mouthMat);
   mouth.position.set(0, -.08, .286); head.add(mouth);
   player.add(head);
+
+  // Peças exclusivas da Julinha HP: visual feminino completo
+  feiticeiraParts = new THREE.Group();
+
+  // --- Cabelo castanho longo e volumoso ---
+  const hairMat = new THREE.MeshStandardMaterial({ color:0x6b3a2a, roughness:.8 });
+  const hairHighMat = new THREE.MeshStandardMaterial({ color:0x8b4a35, roughness:.75 });
+  // topo volumoso
+  const hairTop = new THREE.Mesh(new THREE.SphereGeometry(.32, 10, 10), hairMat);
+  hairTop.scale.set(1.05, .9, 1.05); hairTop.position.set(0, 2.78, 0); feiticeiraParts.add(hairTop);
+  // mechas laterais descendo
+  [[-1, .82], [1, .82]].forEach(([side, scale]) => {
+    const mecha = new THREE.Mesh(new THREE.SphereGeometry(.13, 8, 8), hairMat);
+    mecha.scale.set(.8, 2.2, .8); mecha.position.set(side * .34, 2.3, -.05); feiticeiraParts.add(mecha);
+    const mecha2 = mecha.clone(); mecha2.position.set(side * .3, 1.9, -.12); feiticeiraParts.add(mecha2);
+    const mecha3 = mecha.clone(); mecha3.position.set(side * .24, 1.5, -.1); feiticeiraParts.add(mecha3);
+  });
+  // franja na testa
+  const franja = new THREE.Mesh(new THREE.SphereGeometry(.28, 10, 8), hairMat);
+  franja.scale.set(1.0, .45, .7); franja.position.set(0, 2.62, .24); feiticeiraParts.add(franja);
+
+  // --- Torso feminino (substitui o torso blindado com X) ---
+  const torsoFemMat = new THREE.MeshStandardMaterial({ color:0x2b1055, roughness:.8 });
+  const torsoFem = new THREE.Mesh(new THREE.BoxGeometry(.72, .82, .38), torsoFemMat);
+  torsoFem.position.y = 1.58; feiticeiraParts.add(torsoFem);
+  const bordaMat = new THREE.MeshStandardMaterial({ color:0xd4af37, emissive:0xb8932e, emissiveIntensity:.5 });
+  const borda = new THREE.Mesh(new THREE.BoxGeometry(.74, .06, .4), bordaMat);
+  borda.position.y = 1.16; feiticeiraParts.add(borda);
+
+  // --- Rosto mais feminino: maçãs do rosto rosadas ---
+  const blushMat = new THREE.MeshBasicMaterial({ color:0xff9999, transparent:true, opacity:.55 });
+  [-.14, .14].forEach(x => {
+    const blush = new THREE.Mesh(new THREE.SphereGeometry(.055, 8, 8), blushMat);
+    blush.position.set(x, 2.32, .28); blush.scale.set(1.4, .7, .6); feiticeiraParts.add(blush);
+  });
+
+  // --- Saia/robe mágico (substitui a capa, fica na frente e lados) ---
+  const robeMat = new THREE.MeshStandardMaterial({ color:0x1a0a2e, roughness:.85, side:THREE.DoubleSide });
+  const robeAcMat = new THREE.MeshStandardMaterial({ color:0x2d1055, roughness:.8 });
+  // parte principal da saia (cone largo)
+  const saia = new THREE.Mesh(new THREE.ConeGeometry(.62, 1.1, 8), robeMat);
+  saia.position.set(0, .55, 0); feiticeiraParts.add(saia);
+  // barra da saia com detalhe dourado
+  const barraSaia = new THREE.Mesh(new THREE.TorusGeometry(.6, .04, 8, 16), new THREE.MeshStandardMaterial({ color:0xd4af37, emissive:0xd4af37, emissiveIntensity:.6, roughness:.3 }));
+  barraSaia.position.set(0, .03, 0); feiticeiraParts.add(barraSaia);
+  // cinto estreito bem definido
+  const cinto = new THREE.Mesh(new THREE.TorusGeometry(.44, .055, 8, 16), new THREE.MeshStandardMaterial({ color:0xd4af37, emissive:0xb8932e, emissiveIntensity:.8, roughness:.2, metalness:.6 }));
+  cinto.position.set(0, 1.08, 0); feiticeiraParts.add(cinto);
+
+  // --- Gola e detalhe do uniforme no torso ---
+  const golaMat = new THREE.MeshStandardMaterial({ color:0x9b1c2e, roughness:.6 });
+  const gola = new THREE.Mesh(new THREE.TorusGeometry(.3, .06, 8, 12), golaMat);
+  gola.position.set(0, 1.98, 0); feiticeiraParts.add(gola);
+  // faixa listrada no peito (gravata de bruxa)
+  const tie1 = new THREE.Mesh(new THREE.BoxGeometry(.1, .28, .05), new THREE.MeshStandardMaterial({ color:0x9b1c2e, roughness:.7 }));
+  tie1.position.set(0, 1.72, .24); feiticeiraParts.add(tie1);
+  const tie2 = new THREE.Mesh(new THREE.BoxGeometry(.1, .07, .055), new THREE.MeshStandardMaterial({ color:0xd4af37, roughness:.4, metalness:.4 }));
+  tie2.position.set(0, 1.62, .24); feiticeiraParts.add(tie2);
+
+  // --- Estrelinhas douradas flutuantes ao redor (partículas mágicas estáticas) ---
+  const starMat = new THREE.MeshBasicMaterial({ color:0xffd166 });
+  const starPos = [[.7,1.8,.2],[-.65,2.1,0],[.5,2.5,-.2],[-.4,1.4,.3],[.3,1.1,.4]];
+  starPos.forEach(([sx,sy,sz]) => {
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(.055, 0), starMat);
+    star.position.set(sx, sy, sz); feiticeiraParts.add(star);
+  });
+
+  feiticeiraParts.visible = false;
+  player.add(feiticeiraParts);
 
   // Braço esquerdo
   leftArm = mk(.22, .75, .25, matArmorLight);
@@ -1803,6 +1891,18 @@ function buildPlayer() {
   wand.visible = false;
   rightArm.add(wand);
 
+  // Varinha de madeira (substitui a espada na skin Feiticeira)
+  wandMagica = new THREE.Group();
+  const caboMagico = new THREE.Mesh(new THREE.CylinderGeometry(.035, .05, 1.0, 8),
+    new THREE.MeshStandardMaterial({ color:0xc9a36a, roughness:.6 }));
+  caboMagico.position.y = .5; wandMagica.add(caboMagico);
+  const pontaMagica = new THREE.Mesh(new THREE.SphereGeometry(.05, 8, 8),
+    new THREE.MeshStandardMaterial({ color:0xfff3c4, emissive:0xffe9a3, emissiveIntensity:1.4 }));
+  pontaMagica.position.y = 1.02; wandMagica.add(pontaMagica);
+  wandMagica.position.y = -.75; wandMagica.rotation.x = Math.PI/2.2;
+  wandMagica.visible = false;
+  rightArm.add(wandMagica);
+
   player.position.set(0, 0, 10);
   scene.add(player);
 
@@ -1815,8 +1915,8 @@ buildPlayer();
 
 function setSkin(id) {
   currentSkin = SKINS[id];
-  matArmor.color.setHex(currentSkin.armor);
-  matArmorLight.color.setHex(currentSkin.armorLight);
+  matArmor.color.setHex(currentSkin.feiticeira ? 0x2b1055 : currentSkin.armor);
+  matArmorLight.color.setHex(currentSkin.feiticeira ? 0x3d1a70 : currentSkin.armorLight);
   if (state.power <= 0) {                 // não sobrescreve a cor de um poder ativo
     playerGlow.color.setHex(currentSkin.glow);
     playerGlow.emissive.setHex(currentSkin.glowE);
@@ -1829,15 +1929,23 @@ function setSkin(id) {
     capeMesh.material.color.setHex(currentSkin.cape.color);
   }
   capeMesh.material.needsUpdate = true;
+  capeMesh.visible = !currentSkin.feiticeira;  // Julinha HP não usa capa
+  if (playerTorso) playerTorso.visible = !currentSkin.feiticeira;  // saia substitui o torso
+  if (playerLegs) playerLegs.forEach(l => l.visible = !currentSkin.feiticeira);  // saia cobre as pernas
 
   // peças e arma da skin unicórnio
   const eUnicornio = !!currentSkin.unicornio;
   unicornParts.visible = eUnicornio;
+  // peças da Julinha HP
+  const eFeiticeira = !!currentSkin.feiticeira;
+  feiticeiraParts.visible = eFeiticeira;
   // varinha aparece no lugar da espada (só quando nenhum poder de arma está ativo)
   if (eUnicornio) {
-    sword.visible = false; wand.visible = true;
+    sword.visible = false; wand.visible = true; wandMagica.visible = false;
+  } else if (eFeiticeira) {
+    sword.visible = false; wand.visible = false; wandMagica.visible = true;
   } else {
-    wand.visible = false;
+    wand.visible = false; wandMagica.visible = false;
     if (!hammer.visible && !minigunMesh.visible && !bombHand.visible) sword.visible = true;
   }
 
@@ -1912,6 +2020,43 @@ function initSkinPreview() {
     mouth.position.set(0, -.08, .286); head.add(mouth);
     previewGroup.add(head);
 
+    // Cabelo da Feiticeira (visível só quando essa skin estiver selecionada)
+    const pHair = new THREE.MeshStandardMaterial({ color:0x6b3a2a, roughness:.8 });
+    const hairGroup = new THREE.Group();
+    // topo volumoso
+    const hTop = new THREE.Mesh(new THREE.SphereGeometry(.32, 10, 10), pHair);
+    hTop.scale.set(1.05, .9, 1.05); hTop.position.set(0, 2.78, 0); hairGroup.add(hTop);
+    // mechas laterais
+    [[-1],[1]].forEach(([s]) => {
+      [2.3, 1.9, 1.5].forEach((y, i) => {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(.13, 8, 8), pHair);
+        m.scale.set(.8, 2.2, .8); m.position.set(s * (.34 - i*.06), y, -.05 - i*.07); hairGroup.add(m);
+      });
+    });
+    // franja
+    const frp = new THREE.Mesh(new THREE.SphereGeometry(.28, 10, 8), pHair);
+    frp.scale.set(1, .45, .7); frp.position.set(0, 2.62, .24); hairGroup.add(frp);
+    // saia
+    const saiaMat = new THREE.MeshStandardMaterial({ color:0x1a0a2e, roughness:.85, side:THREE.DoubleSide });
+    const saiaP = new THREE.Mesh(new THREE.ConeGeometry(.62, 1.1, 8), saiaMat);
+    saiaP.position.set(0, .55, 0); hairGroup.add(saiaP);
+    // barra dourada da saia
+    const barraMat = new THREE.MeshStandardMaterial({ color:0xd4af37, emissive:0xd4af37, emissiveIntensity:.6 });
+    const barraP = new THREE.Mesh(new THREE.TorusGeometry(.6, .04, 8, 16), barraMat);
+    barraP.position.set(0, .03, 0); hairGroup.add(barraP);
+    // cinto
+    const cintoMat = new THREE.MeshStandardMaterial({ color:0xd4af37, emissive:0xb8932e, emissiveIntensity:.8, metalness:.6 });
+    const cintoP = new THREE.Mesh(new THREE.TorusGeometry(.44, .055, 8, 16), cintoMat);
+    cintoP.position.set(0, 1.08, 0); hairGroup.add(cintoP);
+    // estrelinhas
+    const starMat = new THREE.MeshBasicMaterial({ color:0xffd166 });
+    [[.7,1.8,.2],[-.65,2.1,0],[.5,2.5,-.2]].forEach(([sx,sy,sz]) => {
+      const s = new THREE.Mesh(new THREE.OctahedronGeometry(.055, 0), starMat);
+      s.position.set(sx, sy, sz); hairGroup.add(s);
+    });
+    hairGroup.visible = false;
+    previewGroup.add(hairGroup);
+
     // Braços + espada
     const leftArm = mk(.22, .75, .25, pArmorLight); leftArm.geometry.translate(0,-.32,0); leftArm.position.set(-.55, 1.95, 0);
     const handL = mk(.2,.2,.2, pBoot); handL.position.y = -.72; leftArm.add(handL);
@@ -1933,7 +2078,7 @@ function initSkinPreview() {
     rightArm.add(sword);
     previewGroup.add(rightArm);
 
-    previewGroup.userData = { pArmor, pArmorLight, pBoot, pGlow, pHood, pCape };
+    previewGroup.userData = { pArmor, pArmorLight, pBoot, pGlow, pHood, pCape, hairGroup, torso, leftLeg, rightLeg, sword };
     previewScene.add(previewGroup);
     previewRenderer.render(previewScene, previewCamera);  // frame estático inicial
     // loop só inicia quando a aba Skins estiver visível (ver resumePreview)
@@ -1960,9 +2105,10 @@ function resumePreview() {
 function updateSkinPreview(id) {
   if (!previewGroup) return;
   const sk = SKINS[id];
-  const { pArmor, pArmorLight, pGlow, pHood, pCape } = previewGroup.userData;
-  pArmor.color.setHex(sk.armor);
-  pArmorLight.color.setHex(sk.armorLight);
+  const { pArmor, pArmorLight, pGlow, pHood, pCape, hairGroup, torso, leftLeg, rightLeg, sword } = previewGroup.userData;
+  const eFeiticeira = !!sk.feiticeira;
+  pArmor.color.setHex(eFeiticeira ? 0x2b1055 : sk.armor);
+  pArmorLight.color.setHex(eFeiticeira ? 0x3d1a70 : sk.armorLight);
   pHood.color.setHex(sk.cape.color || 0x0d0a16);
   pGlow.emissive.setHex(sk.glowE);
   pGlow.color.setHex(sk.glow);
@@ -1974,6 +2120,12 @@ function updateSkinPreview(id) {
     pCape.color.setHex(sk.cape.color);
   }
   pCape.needsUpdate = true;
+  pCape.visible = !eFeiticeira;
+  if (hairGroup) hairGroup.visible = eFeiticeira;
+  if (torso) torso.visible = !eFeiticeira;
+  if (leftLeg) leftLeg.visible = !eFeiticeira;
+  if (rightLeg) rightLeg.visible = !eFeiticeira;
+  if (sword) sword.visible = !eFeiticeira;
 }
 try { initSkinPreview(); updateSkinPreview('cacador'); } catch (err) { console.warn('Preview indisponível:', err); }
 
@@ -2715,7 +2867,10 @@ function setPower(type) {
   hammer.visible = (type === 'martelo');
   minigunMesh.visible = (type === 'minigun');
   bombHand.visible = (type === 'explosivo');
-  sword.visible = !(hammer.visible || minigunMesh.visible || bombHand.visible);
+  const semArmaEspecial = !(hammer.visible || minigunMesh.visible || bombHand.visible);
+  sword.visible = semArmaEspecial && !currentSkin.unicornio && !currentSkin.feiticeira;
+  wand.visible = semArmaEspecial && !!currentSkin.unicornio;
+  wandMagica.visible = semArmaEspecial && !!currentSkin.feiticeira;
   document.getElementById('powerFill').style.background = P.css;
   const pn = document.getElementById('powerName');
   pn.style.display = 'block'; pn.style.color = P.css; pn.textContent = P.nome;
@@ -2727,7 +2882,9 @@ function clearPower() {
   state.power = 0; state.powerType = null;
   aura.visible = false;
   hammer.visible = false; minigunMesh.visible = false; bombHand.visible = false;
-  sword.visible = true;
+  sword.visible = !currentSkin.unicornio && !currentSkin.feiticeira;
+  wand.visible = !!currentSkin.unicornio;
+  wandMagica.visible = !!currentSkin.feiticeira;
   if (state.deus <= 0) {
     playerGlow.color.setHex(currentSkin.glow);
     playerGlow.emissive.setHex(currentSkin.glowE);
@@ -3294,6 +3451,12 @@ function attack() {
     fireRainbow();
     return;
   }
+  // Skin feiticeira sem poder de arma ativo → dispara raio elétrico de média distância
+  if (currentSkin.feiticeira && !type) {
+    state.attackT = .35; state.attackCd = .45; state.didHit = true;
+    fireRaioFeiticeira();
+    return;
+  }
   state.attackT = .35;
   state.attackCd = .45;
   state.didHit = false;
@@ -3314,6 +3477,51 @@ function fireRainbow() {
     rainbowShots.push({ mesh:proj, dir, vida:1.6, dano:1 + upgrades.dano + (state.buffCoca > 0 ? 1 : 0) });
     scene.add(proj);
   }
+  sfx('rainbow');
+}
+
+// Raio elétrico da Feiticeira: sai da ponta da varinha, alcance médio, atinge o primeiro inimigo no caminho
+function buildRaioMesh() {
+  const pontos = [];
+  const segmentos = 10;
+  for (let i = 0; i <= segmentos; i++) {
+    const p = i / segmentos;
+    const offX = i === 0 || i === segmentos ? 0 : (Math.random() - .5) * .55;
+    const offY = i === 0 || i === segmentos ? 0 : (Math.random() - .5) * .35;
+    pontos.push(new THREE.Vector3(offX, offY, p * 10));
+  }
+  const curva = new THREE.CatmullRomCurve3(pontos);
+  // núcleo: branco-amarelo bem brilhante
+  const nucleoGeo = new THREE.TubeGeometry(curva, 28, .07, 6, false);
+  const nucleoMat = new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xffee88, emissiveIntensity:5, roughness:0 });
+  const nucleo = new THREE.Mesh(nucleoGeo, nucleoMat);
+  // camada 2: dourado intenso
+  const glowGeo = new THREE.TubeGeometry(curva, 28, .18, 6, false);
+  const glowMat = new THREE.MeshStandardMaterial({ color:0xd4af37, emissive:0xd4af37, emissiveIntensity:3, transparent:true, opacity:.8 });
+  const glow = new THREE.Mesh(glowGeo, glowMat);
+  // camada 3: violeta externo
+  const auraGeo = new THREE.TubeGeometry(curva, 28, .38, 6, false);
+  const auraMat = new THREE.MeshStandardMaterial({ color:0x9b5cf6, emissive:0x9b5cf6, emissiveIntensity:2, transparent:true, opacity:.4 });
+  const auraMesh = new THREE.Mesh(auraGeo, auraMat);
+  const grupo = new THREE.Group();
+  grupo.add(auraMesh, glow, nucleo);
+  return grupo;
+}
+function fireRaioFeiticeira() {
+  const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(player.quaternion);
+  const ALCANCE = 15; // média/longa distância — atravessa vários inimigos na linha
+  const grupo = buildRaioMesh();
+  grupo.position.copy(player.position); grupo.position.y = 1.55;
+  grupo.scale.z = ALCANCE / 10;
+  grupo.lookAt(grupo.position.clone().add(fwd));
+  scene.add(grupo);
+  const luzRaio = new THREE.PointLight(0xd4af37, 2.4, 11, 2);
+  luzRaio.position.copy(grupo.position);
+  scene.add(luzRaio);
+  raiosFeiticeira.push({
+    mesh:grupo, luz:luzRaio, dir:fwd, origem:player.position.clone(),
+    alcance:ALCANCE, vida:.26, dano:4 + upgrades.dano * 2 + (state.buffCoca > 0 ? 2 : 0), acertou:false,
+  });
   sfx('rainbow');
 }
 
@@ -4580,6 +4788,7 @@ function startGame() {
   upgrades.dano = 0; upgrades.vel = 0; upgrades.vidaExtra = 0; upgrades.giratorio = false;
   if (upgradeDrops) upgradeDrops.forEach(u => scene.remove(u)); upgradeDrops = [];
   rainbowShots.forEach(r => scene.remove(r.mesh)); rainbowShots = [];
+  raiosFeiticeira.forEach(r => { scene.remove(r.mesh); scene.remove(r.luz); }); raiosFeiticeira = [];
   auraMilestone = 10;
   minigunCd = 0; deusTick = .5;
   acaiTimer = 5;
@@ -4608,6 +4817,14 @@ function startGame() {
   }
   updateHearts(); updateKills(); updatePowerHud(); updateAuraHud();
   startWave();
+
+  // Balão de fala exclusivo da Julinha HP ao começar a partida
+  if (currentSkin.feiticeira) {
+    const fala = document.getElementById('julinhaFala');
+    fala.textContent = 'KELVINNNN VOU TE MATAR!';
+    fala.classList.add('show');
+    setTimeout(() => fala.classList.remove('show'), 2800);
+  }
 }
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('bdayBtn').addEventListener('click', startBirthday);
@@ -4881,6 +5098,17 @@ function animate() {
 
     playerGlow.emissiveIntensity = 1.8 + Math.sin(t*6) * .5;
     if (playerLight) { playerLight.color.copy(playerGlow.color); playerLight.intensity = .7 + Math.sin(t*6) * .2; }
+    // estrelinhas da Julinha HP giram e pulsam suavemente
+    if (currentSkin.feiticeira && feiticeiraParts.visible) {
+      feiticeiraParts.children.forEach((c, i) => {
+        if (c.geometry && c.geometry.type === 'OctahedronGeometry') {
+          c.rotation.y = t * 2.5 + i;
+          c.rotation.x = t * 1.8 + i;
+          const sc = .85 + Math.sin(t * 4 + i * 1.3) * .2;
+          c.scale.setScalar(sc);
+        }
+      });
+    }
 
     if (state.invuln > 0) {
       state.invuln -= dt;
@@ -5150,6 +5378,56 @@ function animate() {
         }
       }
       if (acertou || rs.vida <= 0) { scene.remove(rs.mesh); rainbowShots.splice(i, 1); }
+    }
+
+    // --- Raios da Feiticeira: instantâneos, acerto checado uma vez, depois só desaparecem ---
+    for (let i = raiosFeiticeira.length - 1; i >= 0; i--) {
+      const rf = raiosFeiticeira[i];
+      rf.vida -= dt;
+      const fade = Math.max(0, rf.vida / .22);
+      // fade: aura, glow, núcleo — opacidade + emissividade diminuem juntas
+      const opacidadesBase = [.4, .8, 1];
+      const emissBaseInt  = [2, 3, 5];
+      rf.mesh.children.forEach((l, idx) => {
+        l.material.opacity = opacidadesBase[idx] * fade;
+        if (l.material.emissiveIntensity !== undefined) l.material.emissiveIntensity = emissBaseInt[idx] * fade;
+      });
+      rf.luz.intensity = 1.6 * fade;
+      if (!rf.acertou) {
+        rf.acertou = true; // só processa o acerto uma vez, no primeiro frame
+        let acertouAlgo = false;
+        for (const e of enemies) {
+          if (e.dying > 0) continue;
+          const toE = e.mesh.position.clone().sub(rf.origem); toE.y = 0;
+          const distAoLongo = toE.dot(rf.dir);
+          if (distAoLongo < 0 || distAoLongo > rf.alcance) continue;
+          const lateral = toE.clone().sub(rf.dir.clone().multiplyScalar(distAoLongo)).length();
+          const raioAlvo = e.elite ? 2.4 : 1.8;
+          if (lateral < raioAlvo) {
+            const dir = e.mesh.position.clone().sub(player.position); dir.y = 0; dir.normalize();
+            hurtEnemy(e, rf.dano, dir, 1.3);
+            acertouAlgo = true;
+          }
+        }
+        // além dos inimigos comuns, também pode acertar ufo/boss na mesma passada (raio atravessa tudo)
+        if (ufo.ativo && ufo.pousada && ufo.mesh) {
+          const toU = ufo.mesh.position.clone().sub(rf.origem); toU.y = 0;
+          const distU = toU.dot(rf.dir);
+          const latU = toU.clone().sub(rf.dir.clone().multiplyScalar(distU)).length();
+          if (distU >= 0 && distU <= rf.alcance && latU < 3.5) { hitUfo(rf.dano); acertouAlgo = true; }
+        }
+        if (reverso.ativo && reverso.mesh) {
+          const toR = reverso.mesh.position.clone().sub(rf.origem); toR.y = 0;
+          const distR = toR.dot(rf.dir);
+          const latR = toR.clone().sub(rf.dir.clone().multiplyScalar(distR)).length();
+          if (distR >= 0 && distR <= rf.alcance && latR < 2.2) { hitReverso(rf.dano); acertouAlgo = true; }
+        }
+        if (acertouAlgo) addShake(.25);
+      }
+      if (rf.vida <= 0) {
+        scene.remove(rf.mesh); scene.remove(rf.luz);
+        raiosFeiticeira.splice(i, 1);
+      }
     }
 
     // --- Bombas em arco ---
